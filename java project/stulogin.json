@@ -1,0 +1,1 @@
+{"timestamp":"2026-10-18T06:25:59.516+00:00","status":500,"error":"Internal Server Error","message":"could not initialize proxy [com.exam.allocation.model.Student#1] - no Session","path":"/api/auth/login"}

@@ -1,0 +1,16 @@
+target/
+.mvn-tool/
+tools/test/chrome-profile/
+tools/test/*.log
+
+# local environment & scratch files
+.env
+*.log
+cj.txt
+ck.txt
+
+# Firebase service-account credentials (secrets - referenced only via the
+# FIREBASE_SERVICE_ACCOUNT env var, never committed)
+service-account*.firebase*.json
+*serviceaccount*.json
+firebase-adminsdk*.json

@@ -1,0 +1,2314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Exam Seating Management System</title>
+    <style>
+        :root {
+            --primary: #4F46E5;
+            --secondary: #10B981;
+            --dark: #1F2937;
+            --light: #F3F4F6;
+            --text-dark: #111827;
+            --danger: #EF4444;
+            --amber: #F59E0B;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--light);
+            margin: 0;
+            padding: 0;
+            color: var(--text-dark);
+        }
+        .navbar {
+            background-color: var(--primary);
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .navbar h1 { margin: 0; font-size: 1.3rem; }
+        .navbar .sub { font-size: .85rem; opacity: .85; }
+
+        .tabs {
+            display: flex;
+            gap: .25rem;
+            background: white;
+            padding: .5rem 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,.08);
+            flex-wrap: wrap;
+            position: sticky;
+            top: 0;
+            z-index: 20;
+        }
+        .tab {
+            border: none;
+            background: transparent;
+            padding: .6rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #4B5563;
+            font-size: .92rem;
+        }
+        .tab:hover { background: #EEF2FF; color: var(--primary); }
+        .tab.active { background: var(--primary); color: white; }
+
+        .container { max-width: 1240px; margin: 1.5rem auto; padding: 0 1rem; }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.6rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+            margin-bottom: 1.5rem;
+        }
+        .card h2, .card h3 { margin-top: 0; }
+
+        .btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: .65rem 1.2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color .2s;
+            margin-right: .5rem;
+            margin-bottom: .4rem;
+            font-size: .9rem;
+        }
+        .btn:hover { background-color: #4338CA; }
+        .btn-success { background-color: var(--secondary); }
+        .btn-success:hover { background-color: #059669; }
+        .btn-amber { background-color: var(--amber); }
+        .btn-amber:hover { background-color: #D97706; }
+        .btn-ghost { background: #E5E7EB; color: #374151; }
+        .btn-ghost:hover { background: #D1D5DB; }
+        .btn-danger { background: #FEE2E2; color: #B91C1C; }
+        .btn-danger:hover { background: #FECACA; }
+        .btn-sm { padding: .35rem .7rem; font-size: .8rem; margin-right: .3rem; }
+        .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+        .section-view { display: none; }
+        .section-view.active-view { display: block; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #E5E7EB; }
+        th { background-color: #F9FAFB; font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: #6B7280; }
+        tr:hover td { background: #FAFAFF; }
+        td.actions { white-space: nowrap; text-align: right; }
+
+        .form-row {
+            margin-bottom: 1rem;
+            display: flex;
+            gap: .75rem;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+        .field { display: flex; flex-direction: column; gap: .25rem; }
+        .field label { font-size: .75rem; font-weight: 700; color: #6B7280; text-transform: uppercase; }
+        input, select {
+            padding: .55rem .6rem;
+            border: 1px solid #D1D5DB;
+            border-radius: 6px;
+            font-size: .92rem;
+            background: white;
+            min-width: 120px;
+        }
+        input:focus, select:focus { outline: 2px solid #C7D2FE; border-color: var(--primary); }
+        .grow { flex: 1; }
+        .hint { font-size: .78rem; color: #6B7280; margin-top: .3rem; }
+
+        .toolbar { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; margin-top: .5rem; }
+        .badge {
+            display: inline-block;
+            padding: .12rem .5rem;
+            border-radius: 999px;
+            font-size: .72rem;
+            font-weight: 700;
+            color: white;
+        }
+        .muted { color: #6B7280; }
+        .empty { padding: 1.5rem; text-align: center; color: #9CA3AF; }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .stat {
+            background: white;
+            border-radius: 12px;
+            padding: 1.1rem 1.2rem;
+            box-shadow: 0 4px 10px rgba(0,0,0,.06);
+            border-top: 4px solid var(--primary);
+        }
+        .stat .num { font-size: 1.9rem; font-weight: 800; }
+        .stat .lbl { font-size: .78rem; color: #6B7280; text-transform: uppercase; letter-spacing: .05em; }
+
+        .message-box {
+            margin-top: .8rem;
+            padding: .75rem 1rem;
+            border-radius: 8px;
+            font-weight: 600;
+            display: none;
+        }
+        .message-box.ok { display: block; background: #ECFDF5; color: #047857; border: 1px solid #A7F3D0; }
+        .message-box.err { display: block; background: #FEF2F2; color: #B91C1C; border: 1px solid #FECACA; }
+
+        /* ---- seating chart ---- */
+        .room-block { margin-bottom: 1.4rem; }
+        .room-title { font-weight: 800; margin-bottom: .5rem; }
+        .room-title span { font-weight: 500; color: #6B7280; font-size: .85rem; }
+        .grid-scroll { overflow-x: auto; padding-bottom: .3rem; }
+        .seat-grid { display: grid; gap: 4px; min-width: max-content; }
+        .col-label, .row-label, .corner {
+            font-size: .68rem;
+            font-weight: 700;
+            color: #9CA3AF;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .seat {
+            min-width: 84px;
+            height: 62px;
+            border: 1px solid #D1D5DB;
+            border-radius: 6px;
+            background: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            padding: 4px;
+            text-align: center;
+        }
+        .seat b { font-size: .85rem; }
+        .seat span { font-size: .7rem; color: #374151; max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .seat em { font-style: normal; font-size: .6rem; color: white; border-radius: 999px; padding: 0 .45rem; max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .seat.vacant { background: #F3F4F6; color: #9CA3AF; font-size: .72rem; border-style: dashed; }
+        .seat.multi { justify-content: flex-start; gap: 3px; padding: 4px; }
+        .slot {
+            display: flex; gap: 5px; align-items: center; width: 100%;
+            background: #F9FAFB; border-radius: 4px; padding: 3px 5px;
+            font-size: .7rem; overflow: hidden;
+        }
+        .slot b { font-size: .72rem; }
+        .slot span { color: #374151; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+        .slot i { font-style: normal; font-size: .58rem; color: #6B7280; max-width: 42%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-left: .25rem; }
+        .slot.empty { background: transparent; border: 1px dashed #D1D5DB; color: #9CA3AF; justify-content: center; font-size: .66rem; }
+        .legend { display: flex; gap: 1rem; flex-wrap: wrap; margin: .4rem 0 1rem; font-size: .8rem; }
+        .legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: .35rem; }
+        .chips { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .4rem; }
+        .chip {
+            background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A;
+            padding: .2rem .6rem; border-radius: 999px; font-size: .78rem; font-weight: 600;
+        }
+        .null-chip { background:#F3F4F6; color:#9CA3AF; border:1px dashed #D1D5DB; padding:0 .4rem; border-radius:4px; font-size:.75rem; }
+
+        .dropzone {
+            border: 2px dashed #C7D2FE;
+            border-radius: 12px;
+            padding: 1.4rem;
+            text-align: center;
+            background: #FAFAFF;
+            margin-bottom: 1rem;
+        }
+        .dropzone input[type=file] { border: none; background: transparent; display: block; width: 100%; max-width: 100%; min-width: 0; }
+        .import-notes { font-size: .85rem; color: #4B5563; margin: .5rem 0; }
+        .import-notes li { margin-bottom: .2rem; }
+        .count-row { display: flex; gap: .7rem; flex-wrap: wrap; margin: .7rem 0; }
+        .count {
+            background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 8px;
+            padding: .5rem .8rem; font-size: .85rem;
+        }
+        .count b { font-size: 1.1rem; display: block; }
+
+        #toast {
+            position: fixed;
+            bottom: 18px;
+            right: 18px;
+            max-width: min(360px, calc(100vw - 36px));
+            padding: .8rem 1.1rem;
+            border-radius: 10px;
+            color: white;
+            font-weight: 600;
+            font-size: .88rem;
+            box-shadow: 0 8px 24px rgba(0,0,0,.25);
+            display: none;
+            z-index: 99;
+        }
+        #toast.ok { display: block; background: #059669; }
+        #toast.err { display: block; background: #DC2626; }
+
+        /* ---- login screen ---- */
+        .auth-screen {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.2rem;
+            background: linear-gradient(160deg, #EEF2FF 0%, #F3F4F6 60%);
+        }
+        .auth-card {
+            background: white;
+            width: 100%;
+            max-width: 400px;
+            border-radius: 16px;
+            padding: 2rem 1.7rem;
+            box-shadow: 0 18px 40px rgba(17, 24, 39, .12);
+            text-align: center;
+        }
+        .auth-card h1 { font-size: 1.15rem; margin: .8rem 0 .2rem; line-height: 1.35; }
+        .auth-card form { text-align: left; margin-top: 1.2rem; }
+        .auth-logo { color: var(--primary); }
+        .pw-wrap { position: relative; display: flex; }
+        .pw-wrap input { flex: 1; padding-right: 4rem; }
+        .pw-toggle {
+            position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+            border: none; background: #EEF2FF; color: var(--primary);
+            border-radius: 5px; padding: .3rem .5rem; font-size: .74rem; font-weight: 700; cursor: pointer;
+        }
+        .pw-toggle:hover { background: #E0E7FF; }
+        .form-error {
+            display: none; margin: .3rem 0 .8rem; padding: .55rem .7rem; border-radius: 6px;
+            background: #FEF2F2; border: 1px solid #FECACA; color: #B91C1C;
+            font-size: .84rem; font-weight: 600;
+        }
+        .form-error.show { display: block; }
+        .btn-block { width: 100%; margin-right: 0; }
+        .spinner {
+            display: inline-block; width: 14px; height: 14px; border-radius: 50%;
+            border: 2px solid rgba(255,255,255,.45); border-top-color: #fff;
+            animation: spin .7s linear infinite; vertical-align: -2px; margin-right: .4rem;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+        }
+
+        /* ---- student app ---- */
+        .stu-view { display: none; }
+        .stu-view.active-view { display: block; }
+        .exam-card {
+            background: white; border-radius: 12px; padding: 1rem 1.1rem; margin-bottom: .8rem;
+            box-shadow: 0 4px 10px rgba(0,0,0,.06); border-left: 4px solid var(--primary);
+        }
+        .exam-card h4 { margin: 0 0 .25rem; }
+        .exam-card .meta { font-size: .85rem; color: #4B5563; }
+        .ann-item { border-bottom: 1px solid #F3F4F6; padding: .6rem 0; }
+        .ann-item:last-child { border-bottom: none; }
+        .slip {
+            max-width: 560px; margin: 0 auto; border: 2px dashed #C7D2FE; border-radius: 14px;
+            padding: 1.3rem 1.4rem; background: #FAFAFF;
+        }
+        .slip h3 { margin: 0 0 .1rem; text-align: center; }
+        .slip .seat-big { font-size: 1.6rem; font-weight: 800; text-align: center; color: var(--primary); }
+        .slip dl { display: grid; grid-template-columns: 40% 60%; gap: .3rem .6rem; margin: .9rem 0 0; }
+        .slip dt { font-size: .74rem; text-transform: uppercase; letter-spacing: .04em; color: #6B7280; font-weight: 700; }
+        .slip dd { margin: 0; font-weight: 600; }
+        .banner {
+            background: #FFFBEB; border: 1px solid #FDE68A; color: #92400E;
+            border-radius: 8px; padding: .7rem .9rem; margin-bottom: 1rem; font-size: .88rem; font-weight: 600;
+        }
+        .filters { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; margin-bottom: .8rem; }
+
+        /* ---- responsive: no page overflow, touch-friendly controls ---- */
+        .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
+        /* Edit-mode inputs scroll inside the wrapper; they never widen the page. */
+        .table-scroll input, .table-scroll select { width: 100%; min-width: 0; }
+        .table-scroll input[type="checkbox"] { width: 18px; height: 18px; min-width: 18px; }
+        tr[data-edit] td { min-width: 100px; }
+        tr[data-edit] td.actions { min-width: 150px; }
+
+        /* Fluid add/edit form: multiple columns on desktop, 3/2/1 as width shrinks. */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: .75rem;
+            align-items: end;
+            margin-bottom: 1rem;
+        }
+        .form-grid .field { min-width: 0; }
+        .form-grid .field input, .form-grid .field select { width: 100%; min-width: 0; }
+        .form-grid .btn { margin: 0; justify-self: start; }
+        @media (min-width: 1500px) { .form-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+        @media (max-width: 1150px) { .form-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+        @media (max-width: 860px)  { .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 360px)  { .form-grid { grid-template-columns: 1fr; } }
+
+        /* Form/toolbar controls fill their column instead of forcing a fixed width. */
+        .form-row .field { flex: 1 1 170px; min-width: 0; max-width: 100%; }
+        .form-row input, .form-row select { width: 100%; min-width: 0; }
+        .toolbar input, .toolbar select { flex: 1 1 220px; min-width: 0; width: auto; }
+
+        /* Room picker (Seating Chart tab) */
+        .room-checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: .5rem; margin-top: .5rem; }
+        .room-check {
+            display: flex; gap: .55rem; align-items: flex-start;
+            border: 1px solid #E5E7EB; border-radius: 8px;
+            padding: .55rem .65rem; background: #F9FAFB; font-size: .85rem; cursor: pointer;
+        }
+        .room-check input { width: 18px; height: 18px; min-width: 18px; flex: none; margin-top: .1rem; accent-color: var(--primary); }
+        .room-check .rc-meta { color: #6B7280; font-size: .78rem; }
+        .room-check.off { opacity: .6; }
+
+        /* ---- responsible.md upgrade: navigation, calendar, a11y, polish ---- */
+        .skip-link { position: absolute; left: -9999px; top: 0; }
+        .skip-link:focus { left: 8px; top: 8px; z-index: 100; background: #fff; color: var(--primary); font-weight: 700; padding: .6rem .9rem; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+        :focus-visible { outline: 3px solid var(--primary); outline-offset: 1px; }
+        .btn:focus-visible, .tab:focus-visible, .nav-toggle:focus-visible { outline: none; box-shadow: 0 0 0 3px #fff, 0 0 0 6px rgba(79, 70, 229, .65); }
+        ::selection { background: #C7D2FE; }
+        html { scroll-behavior: smooth; }
+        @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+        /* Animated hamburger (bars morph to an X; respects reduced motion) */
+        .nav-right { display: flex; align-items: center; gap: .8rem; }
+        .nav-toggle {
+            display: none; width: 44px; height: 44px; padding: 0; border: none; border-radius: 10px;
+            background: #fff; color: var(--primary); cursor: pointer;
+            align-items: center; justify-content: center;
+            box-shadow: 0 1px 0 rgba(31,41,55,.05), 0 1px 2px rgba(31,41,55,.12);
+            transition: box-shadow .25s ease;
+        }
+        .nav-toggle:hover { box-shadow: 0 4px 8px rgba(31,41,55,.16); }
+        .nav-toggle svg { width: 20px; height: 20px; fill: currentColor; pointer-events: none; }
+        .nav-toggle rect { transform-box: fill-box; transform-origin: center; transition: transform .3s cubic-bezier(.5,.85,.25,1.8); }
+        .nav-toggle .bar1 { transform: translate(7px, -5px); }
+        .nav-toggle .bar3 { transform: translate(7px, 5px); }
+        .nav-toggle[aria-pressed="true"] .bar1 { transform: translateX(0) rotate(315deg); }
+        .nav-toggle[aria-pressed="true"] .bar2 { transform: rotate(45deg); }
+        .nav-toggle[aria-pressed="true"] .bar3 { transform: translateX(0) rotate(135deg); }
+        @media (prefers-reduced-motion: reduce) { .nav-toggle rect { transition-duration: .01ms !important; } }
+        @media (max-width: 760px) {
+            .nav-toggle { display: inline-flex; }
+            .tabs.is-collapsed { display: none; }
+            .tabs.is-open { animation: tabdrop .25s ease; }
+        }
+        @keyframes tabdrop { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+
+        /* Calendar (month grid + agenda; compact on phones) */
+        .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; margin-top: .8rem; }
+        .cal-dow { font-size: .68rem; font-weight: 700; text-transform: uppercase; color: #6B7280; text-align: center; padding: .2rem 0; }
+        .cal-day { min-height: 76px; border: 1px solid #E5E7EB; border-radius: 8px; padding: .25rem .3rem; background: #fff; font-size: .78rem; overflow: hidden; }
+        .cal-day.other { background: #F9FAFB; }
+        .cal-day.today { border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
+        .cal-daynum { font-weight: 700; color: #374151; }
+        .cal-chip {
+            display: block; width: 100%; text-align: left; border: none; cursor: pointer; margin-top: .15rem;
+            background: #EEF2FF; color: #3730A3; border-left: 3px solid var(--primary); border-radius: 4px;
+            padding: .12rem .3rem; font-size: .68rem; font-weight: 600;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .cal-chip:hover { background: #E0E7FF; }
+        .cal-agenda-item { display: flex; gap: .7rem; align-items: center; border-bottom: 1px solid #F3F4F6; padding: .5rem 0; flex-wrap: wrap; }
+        .cal-agenda-item:last-child { border-bottom: none; }
+        .cal-when { min-width: 100px; font-size: .8rem; font-weight: 700; color: #3730A3; }
+        @media (max-width: 640px) {
+            .cal-day { min-height: 52px; }
+            .cal-chip { font-size: 0; height: .55rem; padding: 0; }
+        }
+
+        /* Announcements admin list */
+        .ann-admin-item { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; border: 1px solid #E5E7EB; border-radius: 10px; padding: .7rem .9rem; margin-bottom: .6rem; background: #F9FAFB; }
+
+        /* Small design polish */
+        .stat { transition: transform .2s ease, box-shadow .2s ease; }
+        @media (hover: hover) { .stat:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,.08); } }
+        h2, h3, h4 { letter-spacing: -0.01em; }
+        @media (max-width: 760px) {
+            .navbar { padding: .8rem 1rem; }
+            .navbar h1 { font-size: 1.05rem; }
+            .tabs { overflow-x: auto; flex-wrap: nowrap; padding: .4rem .5rem; }
+            .tab { white-space: nowrap; padding: .7rem .8rem; }
+            .container { margin-top: 1rem; }
+            .card { padding: 1rem; }
+            input:not([type="checkbox"]), select, .btn, .tab { min-height: 40px; font-size: 1rem; }
+            .stat .num { font-size: 1.5rem; }
+            .slip dl { grid-template-columns: 1fr; }
+            .slip dt { margin-top: .4rem; }
+        }
+        /* Notification bell + panel (student portal) */
+        .bell-wrap { position: relative; }
+        .bell-btn { position: relative; background: #fff; border: 1px solid #E5E7EB; border-radius: 999px;
+            min-width: 40px; min-height: 40px; cursor: pointer; font-size: 1rem; line-height: 1;
+            display: inline-flex; align-items: center; justify-content: center; padding: 0 .6rem; gap: .3rem; }
+        .bell-btn:hover { background: #F3F4F6; }
+        .bell-btn.has-new-notification { animation: notification-arrival .8s ease; }
+        @keyframes notification-arrival {
+            0%, 100% { transform: scale(1); }
+            35% { transform: scale(1.16); }
+            70% { transform: scale(.96); }
+        }
+        .bell-badge { position: absolute; top: -6px; right: -6px; background: #EF4444; color: #fff;
+            border-radius: 999px; font-size: .68rem; font-weight: 700; min-width: 18px; height: 18px;
+            display: inline-flex; align-items: center; justify-content: center; padding: 0 4px; }
+        .bell-badge[hidden] { display: none; }
+        .notif-panel { position: absolute; right: 0; top: calc(100% + 8px); width: min(92vw, 360px);
+            background: #fff; border: 1px solid #E5E7EB; border-radius: 12px; box-shadow: 0 16px 40px rgba(0,0,0,.14);
+            z-index: 60; max-height: 70vh; display: flex; flex-direction: column; }
+        .notif-panel[hidden] { display: none; }
+        .notif-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+            padding: .7rem .9rem; border-bottom: 1px solid #F3F4F6; }
+        .notif-list { overflow-y: auto; padding: .4rem; }
+        .notif-item { display: block; width: 100%; text-align: left; background: #F9FAFB; border: 1px solid #E5E7EB;
+            border-radius: 10px; padding: .6rem .7rem; margin-bottom: .45rem; cursor: pointer; font: inherit; }
+        .notif-item:hover { background: #F3F4F6; }
+        .notif-item.unread { background: #EEF2FF; border-color: #C7D2FE; }
+        .notif-item .t { font-weight: 600; font-size: .9rem; display: flex; gap: .4rem; align-items: baseline; }
+        .notif-item .b { font-size: .8rem; color: #4B5563; margin: .15rem 0 0; }
+        .notif-item .w { font-size: .72rem; color: #9CA3AF; margin-top: .2rem; }
+        .notif-dot { width: 8px; height: 8px; border-radius: 999px; background: #6366F1; flex: none; }
+        .notif-foot { border-top: 1px solid #F3F4F6; padding: .6rem .9rem; display: flex; flex-wrap: wrap; gap: .5rem;
+            align-items: center; justify-content: space-between; }
+        @media print {
+            .navbar, .tabs, .no-print, .toolbar, .form-row, #toast { display: none !important; }
+            .card { box-shadow: none; border: 1px solid #ddd; }
+            body { background: white; }
+        }
+    
+
+        /* Final responsive overrides: mobile navigation is an expandable vertical menu. */
+        .tabs { min-width: 0; width: 100%; }
+        .container, .card, .form-row, .form-grid, .toolbar, .field,
+        .stat-grid, .table-scroll, .grid-scroll { min-width: 0; }
+        .form-row > *, .form-grid > *, .toolbar > * { max-width: 100%; }
+        input[type="checkbox"], input[type="radio"] {
+            width: 18px;
+            height: 18px;
+            min-width: 18px;
+            flex: 0 0 18px;
+            accent-color: var(--primary);
+        }
+        input[type="file"] { max-width: 100%; }
+        .auth-screen { min-height: 100vh; min-height: 100svh; }
+        .table-scroll { overscroll-behavior-x: contain; }
+        .settings-session {
+            margin-top: 1.2rem;
+            padding-top: 1rem;
+            border-top: 1px solid #E5E7EB;
+        }
+        .settings-session .btn { margin-top: .25rem; }
+        /* Push notification templates (Settings) */
+        .tpl-card {
+            border: 1px solid #E5E7EB;
+            border-radius: 10px;
+            padding: .8rem .9rem;
+            margin: .6rem 0;
+            background: #F8FAFC;
+        }
+        .tpl-head {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            margin-bottom: .45rem;
+        }
+        .tpl-card label {
+            display: block;
+            font-size: .8rem;
+            font-weight: 600;
+            color: #64748B;
+            margin: .35rem 0 0;
+        }
+        .tpl-card input[type="text"], .tpl-card input:not([type]), .tpl-card textarea {
+            width: 100%;
+            margin-top: .2rem;
+            font-size: .92rem;
+        }
+        .tpl-card textarea { resize: vertical; min-height: 2.6rem; }
+        .tpl-actions {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: .5rem;
+            margin-top: .55rem;
+        }
+        .tpl-token {
+            display: inline-block;
+            border: 1px solid #CBD5E1;
+            background: #EEF2FF;
+            color: #4338CA;
+            border-radius: 999px;
+            padding: .05rem .55rem;
+            font-size: .76rem;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            cursor: pointer;
+        }
+        .tpl-token:hover { background: #E0E7FF; }
+        @media (max-width: 760px) {
+            .navbar {
+                position: relative;
+                z-index: 30;
+                gap: .65rem;
+                padding: .8rem 1rem;
+            }
+            .navbar h1 {
+                flex: 1 1 auto;
+                min-width: 0;
+                line-height: 1.25;
+                overflow-wrap: anywhere;
+            }
+            .nav-right { flex: 0 0 auto; gap: .5rem; }
+            .tabs {
+                position: relative;
+                top: auto;
+                z-index: 25;
+                display: flex;
+                flex-direction: column;
+                flex-wrap: nowrap;
+                align-items: stretch;
+                gap: .2rem;
+                padding: .5rem;
+                overflow-x: hidden;
+                overflow-y: auto;
+                max-height: min(70dvh, 560px);
+                box-shadow: 0 8px 20px rgba(17,24,39,.10);
+            }
+            .tabs.is-collapsed { display: none !important; }
+            .tabs.is-open { display: flex !important; animation: tabdrop .2s ease; }
+            .tabs .tab {
+                display: block;
+                width: 100%;
+                min-height: 44px;
+                padding: .75rem .9rem;
+                text-align: left;
+                white-space: normal;
+                overflow-wrap: anywhere;
+            }
+            #student-tabs .tab[onclick="logout()"] {
+                margin-left: 0 !important;
+                border-top: 1px solid #E5E7EB;
+                color: #B91C1C;
+            }
+            .container { width: 100%; padding-inline: .75rem; }
+            .card { padding: 1rem; }
+            .form-row { align-items: stretch; }
+            .form-row .field { flex: 1 1 100%; max-width: 100%; }
+            .form-row .btn { width: 100%; margin-right: 0; }
+            .table-scroll table { min-width: 640px; }
+            input:not([type="checkbox"]):not([type="radio"]), select, .btn, .tab { min-height: 44px; }
+            .ann-admin-item { flex-direction: column; }
+            .table-scroll { width: 100%; }
+        }
+        @media (max-width: 420px) {
+            .navbar { padding: .7rem .75rem; }
+            .navbar h1 { font-size: .95rem; max-width: calc(100vw - 128px); }
+            .nav-right .sub { display: none; }
+            .card { padding: .85rem; }
+            .form-grid { grid-template-columns: 1fr; }
+            .form-grid .btn { width: 100%; justify-self: stretch; }
+            .cal-grid { gap: 2px; }
+            .cal-day { min-height: 42px; padding: .15rem; }
+            .cal-dow { font-size: .58rem; }
+            .room-checks { grid-template-columns: minmax(0, 1fr); }
+            .auth-screen { align-items: flex-start; }
+            .auth-card { margin-block: auto; padding: 1.25rem 1rem; }
+        }
+        @media (min-width: 761px) {
+            .tabs { overflow-x: visible; flex-direction: row; flex-wrap: wrap; }
+        }
+
+    </style>
+</head>
+<body>
+    <!-- ============ Login ============ -->
+    <div id="login-screen" class="auth-screen" style="display:none">
+        <div class="auth-card">
+            <div class="auth-logo" aria-hidden="true">
+                <svg width="46" height="46" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4 18 24 8l20 10-20 10L4 18Z" fill="currentColor" opacity=".9"/>
+                    <path d="M12 23v8c0 3 5.4 6 12 6s12-3 12-6v-8" stroke="currentColor" stroke-width="3" fill="none"/>
+                    <path d="M42 20v11" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                    <circle cx="42" cy="34" r="2.6" fill="currentColor"/>
+                </svg>
+            </div>
+            <h1>Smart Exam Seating Management System</h1>
+            <br>
+            <p class="hint" style="margin:0">Sign in to continue</p>
+            <form id="login-form" autocomplete="off">
+                <div class="field">
+                    <label for="login-username">Username</label>
+                    <input id="login-username" name="username" autocomplete="username" autocapitalize="none" placeholder="admin or your roll number">
+                </div>
+                <div class="field" style="margin-top:.7rem">
+                    <label for="login-password">Password</label>
+                    <div class="pw-wrap">
+                        <input id="login-password" name="password" type="password" autocomplete="current-password" placeholder="Password">
+                        <button type="button" class="pw-toggle" id="pw-toggle"
+                                aria-label="Show password" aria-pressed="false">Show</button>
+                    </div>
+                </div>
+                <div id="login-error" class="form-error" role="alert" aria-live="polite"></div>
+               <br> <button type="submit" id="login-btn" class="btn btn-block">Sign in</button>
+            </form>
+            <p class="hint" style="margin-top:1rem">
+                Admin: use the credentials configured for your deployment &middot; Students: use your assigned credentials
+            </p>
+        </div>
+    </div>
+
+    <!-- ============ Admin application ============ -->
+    <div id="admin-app" style="display:none">
+    <a class="skip-link" href="#admin-main">Skip to main content</a>
+    <div class="navbar no-print">
+        <h1>Smart Exam Seating Management System</h1>
+        <div class="nav-right">
+            <div class="sub">Admin Dashboard</div>
+            <button type="button" class="nav-toggle" id="admin-nav-toggle" aria-pressed="false" aria-expanded="false" aria-controls="admin-tabs" aria-label="Menu">
+                <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <rect class="bar1" y="7" width="9" height="2" rx="1"></rect>
+                    <rect class="bar2" y="7" width="16" height="2" rx="1"></rect>
+                    <rect class="bar3" y="7" width="9" height="2" rx="1"></rect>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="tabs no-print is-collapsed" id="admin-tabs">
+        <button class="tab active" data-section="dashboard" onclick="showSection('dashboard')">Dashboard</button>
+        <button class="tab" data-section="students" onclick="showSection('students')">Students</button>
+        <button class="tab" data-section="rooms" onclick="showSection('rooms')">Rooms</button>
+        <button class="tab" data-section="courses" onclick="showSection('courses')">Courses</button>
+        <button class="tab" data-section="exams" onclick="showSection('exams')">Exams</button>
+        <button class="tab" data-section="allocation" onclick="showSection('allocation')">Seating Chart</button>
+        <button class="tab" data-section="import" onclick="showSection('import')">Import Data</button>
+        <button class="tab" data-section="calendar" onclick="showSection('calendar')">Calendar</button>
+        <button class="tab" data-section="reports" onclick="showSection('reports')">Reports</button>
+        <button class="tab" data-section="announcements" onclick="showSection('announcements')">Announcements</button>
+        <button class="tab" data-section="settings" onclick="showSection('settings')">Settings</button>
+    </div>
+
+    <div class="container" id="admin-main">
+
+        <!-- ============ Dashboard ============ -->
+        <div id="dashboard-section" class="section-view active-view">
+            <div class="stat-grid">
+                <div class="stat"><div class="num" id="stat-students">–</div><div class="lbl">Students</div></div>
+                <div class="stat" style="border-color:#10B981"><div class="num" id="stat-rooms">–</div><div class="lbl">Rooms</div></div>
+                <div class="stat" style="border-color:#14B8A6"><div class="num" id="stat-batches">–</div><div class="lbl">Batches</div></div>
+                <div class="stat" style="border-color:#F59E0B"><div class="num" id="stat-exams">–</div><div class="lbl">Exams</div></div>
+                <div class="stat" style="border-color:#EC4899"><div class="num" id="stat-seats">–</div><div class="lbl">Allocated students</div></div>
+                <div class="stat" style="border-color:#0EA5E9"><div class="num" id="stat-upcoming">–</div><div class="lbl">Upcoming exams</div></div>
+                <div class="stat" style="border-color:#EF4444"><div class="num" id="stat-unallocated">–</div><div class="lbl">Unallocated students</div></div>
+            </div>
+            <div class="card">
+                <h2>Dashboard</h2>
+                <div class="toolbar no-print" style="margin-top:1rem">
+                    <button class="btn" onclick="showSection('students')">Manage Students</button>
+                    <button class="btn btn-success" onclick="showSection('rooms')">Manage Rooms</button>
+                    <button class="btn" style="background-color:#14B8A6" onclick="showSection('courses')">Courses / Batches</button>
+                    <button class="btn btn-amber" onclick="showSection('exams')">Manage Exams</button>
+                    <button class="btn" style="background-color:#EC4899" onclick="showSection('allocation')">Generate Seating Chart</button>
+                    <button class="btn btn-ghost" onclick="showSection('import')">Import PDF / Excel</button>
+                </div>
+                <p class="hint" style="margin-top:1.2rem">
+                    Typical flow: <b>1)</b> add students (Roll No, Name, Branch, Batch) or import a PDF/Excel list &rarr;
+                    <b>2)</b> add exam rooms &rarr; <b>3)</b> create batches/courses (defaults A&ndash;G, plus your own) &rarr;
+                    <b>4)</b> upload exam data as PDF/Excel or create exams manually &rarr;
+                    <b>5)</b> generate the seating chart and download it as a PDF (with student list).
+                    Press <b>Enter</b> in any form to jump to the next field.
+                </p>
+            </div>
+        </div>
+
+        <!-- ============ Students ============ -->
+        <div id="students-section" class="card section-view">
+            <h3>Manage Students</h3>
+            <p class="hint">Student information: <b>Roll Number, Name, Branch, Batch, Semester</b> (no division field).</p>
+            <form id="student-form" class="form-row" autocomplete="off">
+                <div class="field"><label for="s-roll">Roll No</label><input id="s-roll" enterkeyhint="next" placeholder="e.g. 101"></div>
+                <div class="field grow"><label for="s-name">Name</label><input id="s-name" enterkeyhint="next" placeholder="Full name"></div>
+                <div class="field"><label for="s-branch">Branch</label><input id="s-branch" enterkeyhint="next" placeholder="e.g. CEC" list="branch-list"><datalist id="branch-list"></datalist></div>
+                <div class="field"><label for="s-batch">Batch</label><select id="s-batch" enterkeyhint="next"></select></div>
+                <div class="field"><label for="s-semester">Semester</label><select id="s-semester" enterkeyhint="go"></select></div>
+                <button type="button" class="btn" onclick="addStudent()">Add Student</button>
+            </form>
+            <div class="toolbar no-print">
+                <input id="student-search" placeholder="Search roll no / name / branch / batch&hellip;"
+                       aria-label="Search students"
+                       oninput="scheduleRenderStudents()">
+                <span class="hint" id="student-count"></span>
+            </div>
+            <div class="table-scroll">
+            <table>
+                <thead><tr><th>Roll No</th><th>Name</th><th>Branch</th><th>Batch</th><th>Semester</th><th>Email / Phone</th><th>Status</th><th class="actions no-print">Actions</th></tr></thead>
+                <tbody id="student-list"></tbody>
+            </table>
+            </div>
+            <div id="student-pager" class="toolbar" style="margin-top:.6rem"></div>
+        </div>
+
+        <!-- ============ Rooms ============ -->
+        <div id="rooms-section" class="card section-view">
+            <h3>Manage Rooms</h3>
+            <form id="room-form" class="form-grid" autocomplete="off">
+                <div class="field"><label for="r-no">Room Number</label><input id="r-no" enterkeyhint="next" placeholder="e.g. 121"></div>
+                <div class="field"><label for="r-name">Room Name (optional)</label><input id="r-name" enterkeyhint="next" placeholder="e.g. Computer Lab"></div>
+                <div class="field"><label for="r-building">Building</label><input id="r-building" enterkeyhint="next" placeholder="e.g. Block A"></div>
+                <div class="field"><label for="r-floor">Floor</label><input id="r-floor" type="number" enterkeyhint="next" placeholder="e.g. 1"></div>
+                <div class="field"><label for="r-desks">Desks</label><input id="r-desks" data-k="desks" type="number" min="1" enterkeyhint="next" placeholder="e.g. 12"></div>
+                <div class="field"><label for="r-per">Students / Desk</label><input id="r-per" data-k="per" type="number" min="1" enterkeyhint="next" value="3"></div>
+                <div class="field"><label for="r-rows">Rows</label><input id="r-rows" data-k="rows" type="number" min="1" enterkeyhint="next" placeholder="auto"></div>
+                <div class="field"><label for="r-cols">Columns</label><input id="r-cols" data-k="cols" type="number" min="1" enterkeyhint="next" placeholder="auto"></div>
+                <div class="field"><label for="r-cap">Capacity</label><input id="r-cap" data-k="cap" type="number" min="0" enterkeyhint="go" placeholder="auto"></div>
+                <button type="button" class="btn btn-success" onclick="addRoom()">Add Room</button>
+            </form>            <div class="hint">Type <b>Desks</b> and rows/columns are auto-predicted as a wide, shallow grid &mdash;3&ndash;4 rows max (12 &rarr;3&times;4,24 &rarr;3&times;8,20 &rarr;4&times;5); or type rows/columns and desks is derived. <b>Capacity = desks &times; students per desk</b> (auto-filled, still editable).</div>
+            <div class="hint">Bulk import room numbers and desk counts from the <b>Import Data &rarr; Rooms</b> tab (PDF, Excel or CSV).</div>
+            <div class="toolbar no-print">
+                <input id="room-search" placeholder="Search room no / name / building&hellip;" oninput="scheduleRenderRooms()" aria-label="Search rooms">
+                <select id="room-status-filter" onchange="renderRooms()" aria-label="Filter rooms by availability">
+                    <option value="">All rooms</option>
+                    <option value="active">Available only</option>
+                    <option value="inactive">Unavailable only</option>
+                </select>
+                <span class="hint" id="room-count" style="margin:0"></span>
+            </div>
+            <div class="table-scroll">
+            <table>
+                <thead><tr><th>Room No</th><th>Room Name</th><th>Building</th><th>Floor</th><th>Rows</th><th>Columns</th><th>Desks</th><th>Students/Desk</th><th>Capacity</th><th>Status</th><th>Select</th><th class="actions no-print">Actions</th></tr></thead>
+                <tbody id="room-list"></tbody>
+            </table>
+            </div>
+        </div>
+
+        <!-- ============ Courses / Batches ============ -->
+        <div id="courses-section" class="card section-view">
+            <h3>Courses / Batches</h3>
+            <p class="hint">Default batches: <b>A, B, C, D, E, F, G</b>. Use <b>Add Course</b> to create additional
+                custom batches &mdash; they immediately become available in the student form, the exam form
+                and the timetable (seating) generation.</p>
+            <form id="batch-form" class="form-row" autocomplete="off">
+                <div class="field"><label>New Batch</label><input id="c-name" enterkeyhint="go" placeholder="e.g. H"></div>
+                <button type="button" class="btn btn-success" onclick="addBatch()">Add Course</button>
+            </form>
+            <div class="table-scroll">
+            <table>
+                <thead><tr><th>Batch</th><th>Type</th><th>Students</th><th class="actions no-print">Actions</th></tr></thead>
+                <tbody id="batch-list"></tbody>
+            </table>
+            </div>
+        </div>
+
+        <!-- ============ Exams ============ -->
+        <div id="exams-section" class="card section-view">
+            <h3>Manage Exams</h3>
+            <form id="exam-form" class="form-row" autocomplete="off">
+                <div class="field grow"><label for="e-subject">Exam / Subject</label><input id="e-subject" enterkeyhint="next" placeholder="e.g. Data Structures"></div>
+                <div class="field"><label for="e-branch">Branch</label><input id="e-branch" enterkeyhint="next" placeholder="e.g. CEC (blank = all)"></div>
+                <div class="field"><label for="e-course">Batch</label>
+                    <select id="e-course" enterkeyhint="next"></select>
+                </div>
+                <div class="field"><label for="e-semesters">Semester</label>
+                    <select id="e-semesters" multiple size="3" aria-label="Semesters - hold Ctrl (Cmd on Mac) for several; select none for all"></select>
+                    <span class="hint" style="margin:0">Hold Ctrl/Cmd for multiple &middot; none = all</span>
+                </div>
+                <div class="field"><label for="e-date">Date</label><input id="e-date" type="date" enterkeyhint="next"></div>
+                <div class="field"><label for="e-time">Time</label><input id="e-time" type="time" enterkeyhint="next"></div>
+                <div class="field"><label for="e-appid">Application ID</label>
+                    <input id="e-appid" enterkeyhint="go" placeholder="APP-E-…" list="app-id-list">
+                    <datalist id="app-id-list"></datalist>
+                </div>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="suggestAppId()" title="Auto-generate">Generate ID</button>
+                <button type="button" class="btn btn-amber" onclick="addExam()">Add Exam</button>
+            </form>
+            <div class="hint">Leave branch/batch/semester as &ldquo;All&rdquo; to include every student. Pick one or more semesters (Semester 1&ndash;8) to target specific semesters. Application ID is auto-generated when left blank.</div>
+            <div id="exam-conflicts" class="message-box" style="display:none"></div>
+            <div class="table-scroll">
+            <table>
+                <thead><tr><th>Exam</th><th>Branch</th><th>Batch</th><th>Semester</th><th>Date</th><th>Time</th><th>Status</th><th class="actions no-print">Actions</th></tr></thead>
+                <tbody id="exam-list"></tbody>
+            </table>
+            </div>
+        </div>
+
+        <!-- ============ Allocation / Chart ============ -->
+        <div id="allocation-section" class="card section-view">
+            <h3>Seating Chart</h3>
+            <div class="form-row no-print">
+                <div class="field">
+                    <label for="alloc-exam">Exam</label>
+                    <select id="alloc-exam" onchange="onExamSelected()"></select>
+                </div>
+                <button class="btn btn-amber" id="btn-generate" onclick="generateAllocation()">Generate Seating Chart</button>
+                <button class="btn btn-success" id="btn-pdf" onclick="downloadChartPdf()">Download Chart PDF</button>
+                <button class="btn btn-success" id="btn-publish" onclick="publishAllocations()" disabled>Publish seats</button>
+                <button class="btn btn-ghost" id="btn-unpublish" onclick="unpublishAllocations()" disabled>Unpublish</button>
+                <button class="btn btn-ghost" onclick="window.print()">Print</button>
+                <button class="btn btn-ghost" onclick="loadSeatsForSelected()">Refresh</button>
+            </div>
+            <div id="alloc-status" class="hint" style="margin-top:.4rem"></div>
+            <div id="pdf-tree-block" class="no-print" style="margin-top:.9rem; border:1px solid #E5E7EB; border-radius:10px; padding:.7rem .8rem; background:#F8FAFC">
+                <h4 style="margin:.1rem 0">Download PDF &mdash; tree dropdown (teacher copy)</h4>
+                <p class="hint" style="margin:0">Select the <b>subject</b>, then drill into a <b>class</b> or a <b>room</b> (or keep the full chart). The PDF keeps the exact same layout and wording as the official chart &mdash; grid plus the student list with <b>Roll No and Seat</b> for the concerned teacher to review attendance. The <b>Download Chart PDF</b> button above always produces the complete chart, unchanged.</p>
+                <div class="form-row" style="margin-top:.5rem">
+                    <div class="field grow">
+                        <label for="pdf-subject">Subject (exam)</label>
+                        <select id="pdf-subject" onchange="onPdfSubjectChange()"></select>
+                    </div>
+                    <div class="field grow">
+                        <label for="pdf-scope">Class / room</label>
+                        <select id="pdf-scope"></select>
+                    </div>
+                    <button class="btn btn-success" id="btn-pdf-generate" onclick="downloadScopedChartPdf()">Generate PDF</button>
+                </div>
+                <div id="pdf-tree-msg" class="hint" style="margin:.35rem 0 0"></div>
+            </div>
+            <div id="alloc-room-block" style="margin-top:.9rem">
+                <h4 style="margin:.2rem 0">Rooms for this exam</h4>
+                <p class="hint" style="margin:0">Tick the rooms marked available in Room Management that should be used for this seating chart. The total selected capacity must cover every eligible student.</p>
+                <div id="alloc-room-list" class="room-checks"></div>
+                <div id="alloc-room-warn" class="message-box" style="display:none"></div>
+            </div>
+            <div id="alloc-stats" class="count-row" style="display:none"></div>
+            <div id="allocation-message" class="message-box"></div>
+            <div id="alloc-conflicts" class="message-box" style="display:none"></div>
+
+            <div id="chart-legend" class="legend"></div>
+            <div id="chart-container"><div class="empty">Select an exam and generate the chart.</div></div>
+
+            <div id="unallocated-block" style="display:none">
+                <h4>Not yet seated</h4>
+                <div class="chips" id="unallocated-chips"></div>
+            </div>
+        </div>
+
+        <!-- ============ Import ============ -->
+        <div id="import-section" class="card section-view">
+            <h3>Import Data (PDF / Excel / CSV)</h3>
+            <div class="toolbar no-print" style="margin-bottom:1rem">
+                <button class="btn" id="mode-students-btn" onclick="setImportMode('students')">Student List</button>
+                <button class="btn btn-amber" id="mode-exams-btn" onclick="setImportMode('exams')">Exam Data</button>
+                <button class="btn btn-success" id="mode-rooms-btn" onclick="setImportMode('rooms')">Rooms</button>
+            </div>
+
+            <div id="import-mode-students">
+                <div class="dropzone">
+                    <input type="file" id="import-file" accept=".pdf,.xlsx,.xls,.csv,.txt">
+                    <div class="hint" style="margin-top:.5rem">
+                        Supported: <b>.pdf</b>, <b>.xlsx</b>, <b>.xls</b>, <b>.csv</b> &mdash; expected columns:
+                        Roll No, Name, Branch, Batch. <b>Missing cells are stored as null.</b>
+                        Unknown batches found in the file are registered automatically.
+                    </div>
+                    <div style="margin-top:.9rem">
+                        <button class="btn btn-success" onclick="uploadImport()">Upload &amp; Import</button>
+                        <button class="btn btn-ghost" onclick="downloadTemplate()">Download CSV template</button>
+                    </div>
+                </div>
+                <div id="import-result" style="display:none">
+                    <div class="count-row" id="import-counts"></div>
+                    <ul class="import-notes" id="import-notes"></ul>
+                    <h4>Preview</h4>
+                    <div class="table-scroll">
+                    <table>
+                        <thead><tr><th>Roll No</th><th>Name</th><th>Branch</th><th>Batch</th><th>Missing cells</th></tr></thead>
+                        <tbody id="import-preview"></tbody>
+                    </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="import-mode-exams" style="display:none">
+                <div class="dropzone">
+                    <input type="file" id="exam-import-file" accept=".pdf,.xlsx,.xls,.csv,.txt">
+                    <div class="hint" style="margin-top:.5rem">
+                        Upload an exam schedule as <b>.pdf</b>, <b>.xlsx</b>, <b>.xls</b> or <b>.csv</b> &mdash; expected
+                        columns: Subject, Branch, Batch, Date, Time (Application ID optional).
+                        Rows without a subject or a valid date are rejected and reported.
+                    </div>
+                    <div style="margin-top:.9rem">
+                        <button class="btn btn-amber" onclick="uploadExamImport()">Upload Exam Data</button>
+                        <button class="btn btn-ghost" onclick="downloadExamTemplate()">Download CSV template</button>
+                    </div>
+                </div>
+                <div id="exam-import-result" style="display:none">
+                    <div class="count-row" id="exam-import-counts"></div>
+                    <ul class="import-notes" id="exam-import-notes"></ul>
+                    <div id="exam-import-conflicts" class="message-box" style="display:none"></div>
+                    <h4>Preview</h4>
+                    <div class="table-scroll">
+                    <table>
+                        <thead><tr><th>Subject</th><th>Branch</th><th>Batch</th><th>Date</th><th>Time</th><th>Application ID</th><th>Status</th></tr></thead>
+                        <tbody id="exam-import-preview"></tbody>
+                    </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="import-mode-rooms" style="display:none">
+                <div class="dropzone">
+                    <label for="room-import-file"><b>Import rooms</b> (PDF, Excel or CSV)</label><br>
+                    <input type="file" id="room-import-file" accept=".pdf,.xlsx,.xls,.csv,.tsv,.txt">
+                    <div class="hint" style="margin-top:.5rem">
+                        Required columns: <b>Room Number</b> and <b>Desks</b>. Students per desk defaults to 3; rows, columns and capacity are calculated automatically.
+                    </div>
+                    <div style="margin-top:.7rem">
+                        <button class="btn btn-success" onclick="uploadRoomImport()">Upload &amp; Import Rooms</button>
+                        <button class="btn btn-ghost" onclick="downloadRoomTemplate()">Download CSV template</button>
+                    </div>
+                </div>
+                <div id="room-import-result" style="display:none">
+                    <div class="count-row" id="room-import-counts"></div>
+                    <ul class="import-notes" id="room-import-notes"></ul>
+                    <h4>Import preview</h4>
+                    <div class="table-scroll">
+                    <table>
+                        <thead><tr><th>Room Number</th><th>Desks</th><th>Status</th></tr></thead>
+                        <tbody id="room-import-preview"></tbody>
+                    </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ Calendar / Timetable ============ -->
+        <div id="calendar-section" class="card section-view">
+            <h3>Calendar &amp; Timetable</h3>
+            <p class="hint">Every examination in the database. Click an event for its details and room-allocation status.</p>
+            <div class="toolbar no-print">
+                <button class="btn btn-sm btn-ghost" onclick="calMove(-1)" aria-label="Previous period">&lsaquo; Prev</button>
+                <button class="btn btn-sm btn-ghost" onclick="calToday()">Today</button>
+                <button class="btn btn-sm btn-ghost" onclick="calMove(1)" aria-label="Next period">Next &rsaquo;</button>
+                <select id="cal-view" onchange="calRender()" aria-label="Calendar view">
+                    <option value="month">Month</option>
+                    <option value="week">Week</option>
+                    <option value="list">List</option>
+                </select>
+                <span class="hint" id="cal-title" style="margin:0"></span>
+            </div>
+            <div id="cal-grid" class="cal-grid"></div>
+            <div id="cal-detail" class="message-box" style="display:none"></div>
+            <h4 style="margin:1rem 0 .2rem">Agenda (upcoming)</h4>
+            <div id="cal-agenda"></div>
+        </div>
+
+        <!-- ============ Reports ============ -->
+        <div id="reports-section" class="card section-view">
+            <h3>Reports</h3>
+            <p class="hint">Live allocation status per examination, straight from the database. Use <b>Print</b> for a paper copy; the official seating chart PDF is on the Seating Chart tab.</p>
+            <div class="toolbar no-print">
+                <button class="btn" onclick="loadReports()">Refresh</button>
+                <button class="btn btn-ghost" onclick="window.print()">Print report</button>
+            </div>
+            <div class="count-row" id="report-totals" style="display:none"></div>
+            <div class="table-scroll">
+            <table>
+                <thead><tr><th>Exam</th><th>Date</th><th>Time</th><th>Audience</th><th>Status</th><th>Eligible</th><th>Seated</th><th>Unseated</th><th>Chart</th></tr></thead>
+                <tbody id="report-list"></tbody>
+            </table>
+            </div>
+        </div>
+
+        <!-- ============ Announcements ============ -->
+        <div id="announcements-section" class="card section-view">
+            <h3>Announcements</h3>
+            <p class="hint">Posted to the dashboard of every student in the chosen audience (&ldquo;All students&rdquo; = everyone).</p>
+            <form id="ann-form" class="form-row" autocomplete="off">
+                <div class="field grow"><label for="a-title">Title</label><input id="a-title" enterkeyhint="next" placeholder="e.g. Admit card released"></div>
+                <div class="field grow"><label for="a-body">Message</label><input id="a-body" enterkeyhint="next" placeholder="Short message for students"></div>
+                <div class="field"><label for="a-batch">Audience</label><select id="a-batch" enterkeyhint="go"></select></div>
+                <div class="field"><label for="a-semester">Semester</label><select id="a-semester" aria-label="Target semester">
+                    <option value="">All semesters</option>
+                    <option value="1">Semester 1</option><option value="2">Semester 2</option>
+                    <option value="3">Semester 3</option><option value="4">Semester 4</option>
+                    <option value="5">Semester 5</option><option value="6">Semester 6</option>
+                    <option value="7">Semester 7</option><option value="8">Semester 8</option>
+                </select></div>
+                <div class="field grow"><label for="a-rolls">Specific students (roll nos, optional)</label>
+                    <input id="a-rolls" enterkeyhint="next" placeholder="e.g. 101, 102, 103 — leave empty for everyone"></div>
+                <button type="button" class="btn btn-success" onclick="addAnnouncement()">Post</button>
+            </form>
+            <p class="hint">Audience filters combine: a batch + semester + roll-number list only notifies students matching <b>all</b> selected filters. Each targeted student also gets a notification (bell, top right of their portal) and a browser push if enabled.</p>
+            <div id="ann-list"><p class="hint">Loading…</p></div>
+        </div>
+
+        <!-- ============ Settings ============ -->
+        <div id="settings-section" class="card section-view">
+            <h3>Settings</h3>
+            <div class="banner" style="display:block">Demo credentials are for local development only. Set a strong administrator password before deployment.</div>
+            <h4>Change administrator password</h4>
+            <div class="form-row">
+                <div class="field grow"><label for="set-current">Current password</label><input id="set-current" type="password" autocomplete="current-password"></div>
+                <div class="field grow"><label for="set-new">New password</label><input id="set-new" type="password" autocomplete="new-password"></div>
+                <div class="field grow"><label for="set-confirm">Confirm new password</label><input id="set-confirm" type="password" autocomplete="new-password"></div>
+                <button class="btn btn-success" onclick="changeAdminPassword()">Change password</button>
+            </div>
+            <div id="set-msg" class="message-box"></div>
+            <h4 style="margin-top:1.4rem">Push notification templates</h4>
+            <p class="hint">Default wording for every notification type &mdash; exam published, seat published,
+                announcements and the rest. Edit a template and press <b>Save</b> to change what students see in
+                their bell inbox <i>and</i> in the browser push (with its icon) from the next event on.
+                Placeholders in <code>{braces}</code> are filled in per event; editing text never changes
+                seats, exams or audiences. <b>Reset</b> restores the built-in wording.</p>
+            <div id="tpl-list"><p class="hint">Loading&hellip;</p></div>
+            <div id="tpl-msg" class="message-box" style="display:none"></div>
+            <div class="settings-session">
+                <h4>Administrator session</h4>
+                <p class="hint">Sign out when you finish managing students, rooms, exams, or seating allocations. Unsaved changes may be lost.</p>
+                <button type="button" class="btn btn-danger" id="admin-logout-btn" onclick="confirmAdminLogout()">Sign out of admin account</button>
+            </div>
+            <p class="hint">Sessions should expire after 30 minutes of inactivity. Serve the app over HTTPS in production and keep credentials in environment variables (<b>.env.example</b>).</p>
+        </div>
+    </div>
+
+    </div><!-- /admin-app -->
+
+    <!-- ============ Student application ============ -->
+    <div id="student-app" style="display:none">
+        <a class="skip-link" href="#student-main">Skip to main content</a>
+        <div class="navbar no-print">
+            <h1>Smart Exam Seating Management System</h1>
+            <div class="nav-right">
+                <div class="sub" id="student-nav-sub">Student Dashboard</div>
+                <div class="bell-wrap">
+                    <button type="button" class="bell-btn" id="stu-notif-btn" aria-haspopup="true" aria-expanded="false"
+                        aria-label="Notifications" onclick="toggleNotifPanel()">
+                        &#128276;<span class="bell-badge" id="stu-notif-badge" aria-live="polite" hidden>0</span>
+                    </button>
+                    <div class="notif-panel" id="stu-notif-panel" hidden role="dialog" aria-label="Notifications">
+                        <div class="notif-head">
+                            <b>Notifications</b>
+                            <span>
+                                <button type="button" class="btn btn-ghost btn-sm" onclick="markAllRead()">Mark all read</button>
+                                <button type="button" class="btn btn-ghost btn-sm" aria-label="Close" onclick="toggleNotifPanel()">&#10005;</button>
+                            </span>
+                        </div>
+                        <div class="notif-list" id="stu-notif-list"><p class="hint" style="padding:.5rem">Loading…</p></div>
+                        <div class="notif-foot">
+                            <span class="hint" id="stu-push-status" style="margin:0">Push notifications: checking…</span>
+                            <span>
+                                <button type="button" class="btn btn-sm" id="stu-push-btn" onclick="enablePushNotifications()">Enable notifications</button>
+                                <button type="button" class="btn btn-ghost btn-sm" id="stu-push-off" onclick="disablePushNotifications()" hidden>Turn off</button>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="nav-toggle" id="student-nav-toggle" aria-pressed="false" aria-expanded="false" aria-controls="student-tabs" aria-label="Menu">
+                    <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <rect class="bar1" y="7" width="9" height="2" rx="1"></rect>
+                        <rect class="bar2" y="7" width="16" height="2" rx="1"></rect>
+                        <rect class="bar3" y="7" width="9" height="2" rx="1"></rect>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="tabs no-print is-collapsed" id="student-tabs">
+            <button class="tab active" data-stu="overview" onclick="showStudentSection('overview')">Overview</button>
+            <button class="tab" data-stu="exams" onclick="showStudentSection('exams')">My Exams</button>
+            <button class="tab" data-stu="seat" onclick="showStudentSection('seat')">My Seat</button>
+            <button class="tab" data-stu="profile" onclick="showStudentSection('profile')">Profile</button>
+            <button class="tab" style="margin-left:auto" onclick="logout()">Logout</button>
+        </div>
+
+        <div class="container" id="student-main">
+            <div id="pw-banner" class="banner" style="display:none">
+                You are still using your initial password. Please change it in the
+                <b>Profile</b> tab to keep your account safe.
+            </div>
+
+            <!-- Overview -->
+            <div id="student-overview-section" class="stu-view active-view">
+                <div class="stat-grid">
+                    <div class="stat"><div class="num" id="stu-upcoming">–</div><div class="lbl">Upcoming exams</div></div>
+                    <div class="stat" style="border-color:#10B981"><div class="num" id="stu-completed">–</div><div class="lbl">Completed exams</div></div>
+                    <div class="stat" style="border-color:#F59E0B"><div class="num" id="stu-batch">–</div><div class="lbl">Batch</div></div>
+                </div>
+                <div class="card">
+                    <h3 id="stu-greeting">Welcome</h3>
+                    <div id="stu-next-exam"><p class="hint">Loading your examination schedule…</p></div>
+                </div>
+                <div class="card">
+                    <h3>Announcements</h3>
+                    <div id="stu-announcements"><p class="hint">No announcements.</p></div>
+                </div>
+            </div>
+
+            <!-- My Exams -->
+            <div id="student-exams-section" class="card stu-view">
+                <h3>My Examinations</h3>
+                <div class="filters no-print">
+                    <label for="stu-exam-filter" class="hint" style="margin:0">Show</label>
+                    <select id="stu-exam-filter" onchange="renderMyExams()">
+                        <option value="upcoming">Upcoming</option>
+                        <option value="all">All</option>
+                        <option value="completed">Completed</option>
+                        <option value="cancelled">Cancelled</option>
+                    </select>
+                    <button type="button" class="btn btn-ghost btn-sm" id="stu-cal-toggle" aria-pressed="false" onclick="toggleStudentCalendar()">Calendar view</button>
+                </div>
+                <div id="stu-calendar" style="display:none">
+                    <div class="cal-grid" id="stu-cal-grid"></div>
+                    <div id="stu-cal-detail" class="message-box" style="display:none"></div>
+                    <h4 style="margin:.9rem 0 .2rem">Agenda (upcoming)</h4>
+                    <div id="stu-cal-agenda"></div>
+                </div>
+                <div id="stu-exam-list"><p class="hint">Loading…</p></div>
+            </div>
+
+            <!-- My Seat -->
+            <div id="student-seat-section" class="card stu-view">
+                <h3>My Seat Allocation</h3>
+                <div class="filters no-print">
+                    <label for="stu-seat-exam" class="hint" style="margin:0">Examination</label>
+                    <select id="stu-seat-exam" onchange="loadMySeat()"></select>
+                    <button class="btn btn-ghost no-print" onclick="window.print()">Print seat slip</button>
+                </div>
+                <div id="stu-seat-card"><p class="hint">Loading…</p></div>
+            </div>
+
+            <!-- Profile -->
+            <div id="student-profile-section" class="stu-view">
+                <div class="card">
+                    <h3>My Profile</h3>
+                    <div id="stu-profile-details"><p class="hint">Loading…</p></div>
+                    <h4 style="margin-bottom:.4rem">Update contact details</h4>
+                    <p class="hint">You can change your email address and phone number. Roll number, batch, semester and seating can only be changed by an administrator.</p>
+                    <div class="form-row">
+                        <div class="field grow"><label for="p-email">Email</label><input id="p-email" type="email" placeholder="you@example.com"></div>
+                        <div class="field grow"><label for="p-phone">Phone</label><input id="p-phone" placeholder="e.g. 98xxxxxxxx"></div>
+                        <button class="btn" onclick="saveProfile()">Save</button>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>Change Password</h3>
+                    <div class="form-row">
+                        <div class="field grow"><label for="p-current">Current password</label><input id="p-current" type="password" autocomplete="current-password"></div>
+                        <div class="field grow"><label for="p-new">New password</label><input id="p-new" type="password" autocomplete="new-password"></div>
+                        <div class="field grow"><label for="p-confirm">Confirm new password</label><input id="p-confirm" type="password" autocomplete="new-password"></div>
+                        <button class="btn btn-success" onclick="changeStudentPassword()">Change password</button>
+                    </div>
+                    <div id="p-msg" class="message-box"></div>
+                </div>
+            </div>
+        </div>
+    </div><!-- /student-app -->
+
+    <div id="toast"></div>
+
+    <script>
+    /* ================= helpers ================= */
+    const $ = id => document.getElementById(id);
+    const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const cellText = v => v == null ? '<span class="null-chip">null</span>' : esc(v);
+
+    async function api(url, opts = {}) {
+        const res = await fetch(url, opts);
+        const text = await res.text();
+        let data = null;
+        try { data = text ? JSON.parse(text) : null; } catch (e) { data = text; }
+        if (!res.ok) throw new Error((data && data.message) || text || ('HTTP ' + res.status));
+        return data;
+    }
+    const jsonOpts = (method, body) => ({
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: body === undefined ? undefined : JSON.stringify(body)
+    });
+
+    let toastTimer = null;
+    function toast(msg, isError) {
+        const el = $('toast');
+        el.textContent = msg;
+        el.className = isError ? 'err' : 'ok';
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => { el.className = ''; }, 4200);
+    }
+    function setMessage(id, text, isError) {
+        const el = $(id);
+        el.textContent = text;
+        el.className = 'message-box ' + (isError ? 'err' : 'ok');
+    }
+
+    // The same session logout handler is used by both administrator and student views.
+    function confirmAdminLogout() {
+        if (!window.confirm('Sign out of the administrator account?')) return;
+        if (typeof logout === 'function') {
+            logout();
+        } else {
+            toast('Sign-out handler is not available. Check that app.js loaded successfully.', true);
+        }
+    }
+
+    function closeResponsiveMenu(role) {
+        const tabs = $(role + '-tabs');
+        const toggle = $(role + '-nav-toggle');
+        if (!tabs || !toggle) return;
+        tabs.classList.remove('is-open');
+        tabs.classList.add('is-collapsed');
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.setAttribute('aria-pressed', 'false');
+        toggle.setAttribute('aria-label', 'Open menu');
+    }
+
+    /* Enter in a form field moves focus to the next field; in the last field it
+       runs the given action (add / save). This is the "tap to move to next column". */
+    function wireEnterNav(root, onLast) {
+        root.addEventListener('keydown', e => {
+            if (e.key !== 'Enter') return;
+            if (!e.target.matches('input, select')) return;
+            e.preventDefault();
+            const fields = [...root.querySelectorAll('input, select')].filter(el => !el.disabled && el.type !== 'hidden');
+            const i = fields.indexOf(e.target);
+            if (i > -1 && i < fields.length - 1) {
+                fields[i + 1].focus();
+                if (fields[i + 1].select) fields[i + 1].select();
+            } else {
+                onLast();
+            }
+        });
+    }
+    /* Same behaviour inside inline edit rows (delegated). */
+    document.addEventListener('keydown', e => {
+        if (e.key !== 'Enter' || !e.target.matches('tr input, tr select')) return;
+        const row = e.target.closest('tr[data-edit]');
+        if (!row) return;
+        e.preventDefault();
+        const inputs = [...row.querySelectorAll('input, select')];
+        const i = inputs.indexOf(e.target);
+        if (i > -1 && i < inputs.length - 1) {
+            inputs[i + 1].focus();
+            if (inputs[i + 1].select) inputs[i + 1].select();
+        } else {
+            const save = row.querySelector('[data-act="save"]');
+            if (save) save.click();
+        }
+    });
+
+    /* ================= tabs ================= */
+    const loaders = {
+        dashboard: loadDashboard,
+        students: loadStudents,
+        rooms: loadRooms,
+        courses: loadBatches,
+        exams: loadExams,
+        allocation: loadAllocationTab,
+        // defined in app.js (loaded after this script) - resolved at call time
+        settings: () => { if (window.loadNotificationTemplates) window.loadNotificationTemplates(); },
+        import: () => {}
+    };
+    function showSection(name) {
+        document.querySelectorAll('.section-view').forEach(el => el.classList.remove('active-view'));
+        $(name + '-section').classList.add('active-view');
+        document.querySelectorAll('#admin-tabs .tab').forEach(b => {
+            const active = b.dataset.section === name;
+            b.classList.toggle('active', active);
+            b.setAttribute('aria-current', active ? 'page' : 'false');
+        });
+        closeResponsiveMenu('admin');
+        try { if (typeof loaders[name] === 'function') loaders[name](); } catch (e) { /* loader reports its own errors */ }
+    }
+
+    /* ================= courses / batches ================= */
+    let batches = [];
+
+    /** Branch + Batch grouping key shared with the backend (legend / colours / mixing). */
+    const groupKey = s => `${(s.branch || '').trim() || 'Unbranched'}·${(s.batch || '').trim() || 'Unbatched'}`;
+    const isAllTarget = v => { const t = (v || '').trim().toLowerCase(); return !t || t === 'all' || t === '*' || t === 'any'; };
+
+    async function loadBatches() {
+        try {
+            batches = await api('/api/batches');
+            renderBatches();
+            fillBatchSelects();
+        } catch (e) { toast(e.message, true); }
+    }
+    function renderBatches() {
+        const tbody = $('batch-list');
+        if (!tbody) return;
+        if (!batches.length) {
+            tbody.innerHTML = '<tr><td colspan="4" class="empty">No batches yet.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = batches.map(b => {
+            const studentsUsing = students.filter(s => (s.batch || '').toLowerCase() === (b.name || '').toLowerCase()).length;
+            return `<tr data-batch-id="${b.id}">
+                <td><b>${esc(b.name)}</b></td>
+                <td>${b.custom ? '<span class="badge" style="background:#14B8A6">Custom</span>' : '<span class="badge" style="background:#4F46E5">Default</span>'}</td>
+                <td>${studentsUsing}</td>
+                <td class="actions no-print">
+                    <button class="btn btn-sm btn-danger" data-act="delete-batch" data-id="${b.id}">Delete</button>
+                </td></tr>`;
+        }).join('');
+    }
+    async function addBatch() {
+        const name = $('c-name').value.trim();
+        if (!name) { toast('Enter a batch name (e.g. H).', true); $('c-name').focus(); return; }
+        try {
+            await api('/api/batches', jsonOpts('POST', { name }));
+            $('c-name').value = '';
+            $('c-name').focus();
+            toast(`Batch "${name}" added - it is now available for students, exams and scheduling.`);
+            await loadBatches();
+        } catch (e) { toast(e.message, true); }
+    }
+    $('batch-list').addEventListener('click', async e => {
+        const btn = e.target.closest('button[data-act="delete-batch"]');
+        if (!btn) return;
+        const id = Number(btn.dataset.id);
+        try {
+            if (!confirm('Delete this batch?')) return;
+            await api('/api/batches/' + id, jsonOpts('DELETE'));
+            toast('Batch deleted.');
+            await loadBatches();
+        } catch (err) { toast(err.message, true); }
+    });
+    /** Rebuilds every batch dropdown (students, exams) from the current list. */
+    function fillBatchSelects() {
+        const names = batches.map(b => b.name);
+        fillSelect($('s-batch'), names, 'Select batch', false);
+        fillSemesterSelects();
+        fillSelect($('e-course'), names, 'All', true);
+    }
+    /** Semester 1-8 dropdowns: single-select on the student form, multi-select on the exam form. */
+    function fillSemesterSelects() {
+        const semOptions = (from, to, label) =>
+            Array.from({ length: to - from + 1 }, (_, i) => `<option value="${from + i}">${label} ${from + i}</option>`).join('');
+        const single = $('s-semester');
+        if (single) {
+            const previous = single.value;
+            single.innerHTML = '<option value="">Select semester</option>' + semOptions(1, 8, 'Sem');
+            if (previous) single.value = previous;
+        }
+        const multi = $('e-semesters');
+        if (multi) {
+            const previous = [...multi.selectedOptions].map(o => o.value);
+            multi.innerHTML = semOptions(1, 8, 'Semester');
+            previous.forEach(v => { const opt = [...multi.options].find(o => o.value === v); if (opt) opt.selected = true; });
+        }
+    }
+    function fillSelect(select, names, placeholder, withAll) {
+        if (!select) return;
+        const previous = select.value;
+        select.innerHTML = (withAll ? '<option value="">All</option>' : `<option value="">${esc(placeholder)}</option>`)
+            + names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+        if (previous && names.includes(previous)) select.value = previous;
+    }
+
+    /* ================= students ================= */
+    let students = [];
+    let editingStudentId = null;
+
+    async function loadStudents() {
+        try {
+            students = await api('/api/students');
+            renderStudents();
+            renderBatches();   // keep the per-batch student counts fresh
+        } catch (e) { toast(e.message, true); }
+    }
+    function renderStudents() {
+        const q = ($('student-search').value || '').toLowerCase();
+        const list = students.filter(s => !q || [s.rollNo, s.name, s.branch, s.batch]
+            .some(v => (v || '').toLowerCase().includes(q)));
+        $('student-count').textContent = list.length + ' of ' + students.length + ' students';
+
+        // keep the branch datalist in sync with existing branches
+        const branchList = $('branch-list');
+        if (branchList) {
+            branchList.innerHTML = [...new Set(students.map(s => (s.branch || '').trim()).filter(Boolean))]
+                .map(b => `<option value="${esc(b)}">`).join('');
+        }
+
+        const tbody = $('student-list');
+        if (!list.length) {
+            tbody.innerHTML = '<tr><td colspan="5" class="empty">No students found. Add one above or import a file.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = list.map(s => {
+            if (editingStudentId === s.id) {
+                return `<tr data-edit data-id="${s.id}">
+                    <td><input data-f="rollNo" value="${esc(s.rollNo)}" placeholder="Roll No"></td>
+                    <td><input data-f="name" value="${esc(s.name)}" placeholder="Name"></td>
+                    <td><input data-f="branch" value="${esc(s.branch)}" placeholder="Branch"></td>
+                    <td>${batchSelectHtml('batch', s.batch)}</td>
+                    <td class="actions no-print">
+                        <button class="btn btn-sm btn-success" data-act="save" data-id="${s.id}">Save</button>
+                        <button class="btn btn-sm btn-ghost" data-act="cancel" data-id="${s.id}">Cancel</button>
+                    </td></tr>`;
+            }
+            return `<tr>
+                <td>${cellText(s.rollNo)}</td>
+                <td>${cellText(s.name)}</td>
+                <td>${cellText(s.branch)}</td>
+                <td>${cellText(s.batch)}</td>
+                <td class="actions no-print">
+                    <button class="btn btn-sm btn-ghost" data-act="edit" data-id="${s.id}">Edit</button>
+                    <button class="btn btn-sm btn-danger" data-act="delete" data-id="${s.id}">Delete</button>
+                </td></tr>`;
+        }).join('');
+    }
+    /** Select used in inline edit rows; unknown values are added as an extra option. */
+    function batchSelectHtml(field, value, emptyLabel = '-') {
+        const names = batches.map(b => b.name);
+        if (value && !names.includes(value)) names.push(value);
+        return `<select data-f="${field}"><option value="">${esc(emptyLabel)}</option>`
+            + names.map(n => `<option value="${esc(n)}"${n === value ? ' selected' : ''}>${esc(n)}</option>`).join('')
+            + '</select>';
+    }
+    async function addStudent() {
+        const semester = $('s-semester') && $('s-semester').value ? Number($('s-semester').value) : null;
+        if (semester !== null && !(semester >= 1 && semester <= 8)) {
+            toast('Semester must be between 1 and 8.', true);
+            $('s-semester').focus();
+            return;
+        }
+        const payload = {
+            rollNo: $('s-roll').value.trim() || null,
+            name: $('s-name').value.trim() || null,
+            branch: $('s-branch').value.trim() || null,
+            batch: $('s-batch').value.trim() || null,
+            semester: semester
+        };
+        if (!payload.rollNo && !payload.name) { toast('Enter at least a roll no or a name.', true); $('s-roll').focus(); return; }
+        try {
+            await api('/api/students', jsonOpts('POST', payload));
+            ['s-roll', 's-name', 's-branch'].forEach(id => $(id).value = '');
+            $('s-batch').value = '';
+            if ($('s-semester')) $('s-semester').value = '';
+            $('s-roll').focus();
+            toast('Student added.');
+            await loadStudents();
+            renderBatches();
+        } catch (e) { toast(e.message, true); }
+    }
+    $('student-list').addEventListener('click', async e => {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+        const id = Number(btn.dataset.id);
+        try {
+            if (btn.dataset.act === 'edit') { editingStudentId = id; renderStudents(); }
+            else if (btn.dataset.act === 'cancel') { editingStudentId = null; renderStudents(); }
+            else if (btn.dataset.act === 'save') {
+                const row = btn.closest('tr[data-edit]');
+                const payload = {};
+                row.querySelectorAll('input, select').forEach(inp => payload[inp.dataset.f] = inp.value.trim() || null);
+                if (payload.semester) payload.semester = Number(payload.semester);
+                await api('/api/students/' + id, jsonOpts('PUT', payload));
+                editingStudentId = null;
+                toast('Student updated.');
+                await loadStudents();
+            } else if (btn.dataset.act === 'delete') {
+                if (!confirm('Delete this student?')) return;
+                await api('/api/students/' + id, jsonOpts('DELETE'));
+                toast('Student deleted.');
+                await loadStudents();
+            }
+        } catch (err) { toast(err.message, true); }
+    });
+
+    /* ================= rooms ================= */
+    let rooms = [];
+    let editingRoomId = null;
+
+    async function loadRooms() {
+        try {
+            rooms = await api('/api/rooms');
+            renderRooms();
+        } catch (e) { toast(e.message, true); }
+    }
+    function renderRooms() {
+        const tbody = $('room-list');
+        if (!rooms.length) {
+            tbody.innerHTML = '<tr><td colspan="7" class="empty">No rooms yet. Add the first exam room above.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = rooms.map(r => {
+            const per = r.studentsPerDesk || 1;
+            const desks = r.rowsCount * r.columnsCount;
+            if (editingRoomId === r.id) {
+                return `<tr data-edit data-id="${r.id}">
+                    <td><input data-f="roomNumber" value="${esc(r.roomNumber)}" placeholder="Room No"></td>
+                    <td><input data-f="rowsCount" data-k="rows" type="number" min="1" value="${r.rowsCount}"></td>
+                    <td><input data-f="columnsCount" data-k="cols" type="number" min="1" value="${r.columnsCount}"></td>
+                    <td><input data-f="desks" data-k="desks" type="number" min="1" value="${desks}"></td>
+                    <td><input data-f="studentsPerDesk" data-k="per" type="number" min="1" value="${per}"></td>
+                    <td><input data-f="capacity" data-k="cap" type="number" min="0" value="${r.capacity}" data-auto="${desks * per}"></td>
+                    <td class="actions no-print">
+                        <button class="btn btn-sm btn-success" data-act="save" data-id="${r.id}">Save</button>
+                        <button class="btn btn-sm btn-ghost" data-act="cancel" data-id="${r.id}">Cancel</button>
+                    </td></tr>`;
+            }
+            return `<tr>
+                <td><b>${esc(r.roomNumber)}</b></td>
+                <td>${r.rowsCount}</td>
+                <td>${r.columnsCount}</td>
+                <td>${desks}</td>
+                <td>${per}</td>
+                <td>${r.capacity}</td>
+                <td class="actions no-print">
+                    <button class="btn btn-sm btn-ghost" data-act="edit" data-id="${r.id}">Edit</button>
+                    <button class="btn btn-sm btn-danger" data-act="delete" data-id="${r.id}">Delete</button>
+                </td></tr>`;
+        }).join('');
+    }    /**
+     * Grid prediction for a desk count, kept WIDE and SHALLOW (3-4 rows max,
+     * at most12 columns):
+     *12 ->3x4,24 ->3x8,20 ->4x5,8 ->2x4,36 ->3x12.
+     * Desk counts without a small row divisor fall back to the
+     * closest-to-square layout (e.g.100 ->10x10).
+     */
+    function predictGrid(desks) {
+        if (!desks || desks < 1) return null;
+        const MAX_COLS = 12;
+        for (const rows of [3, 4, 2]) {
+            if (desks % rows === 0 && desks / rows >= rows && desks / rows <= MAX_COLS) {
+                return [rows, desks / rows];
+            }
+        }
+        let best = null;
+        for (let r = 1; r * r <= desks; r++) {
+            if (desks % r === 0) {
+                const c = desks / r;
+                if (!best || (c - r) < (best[1] - best[0])) best = [r, c];
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Two-way room calculator: type Desks -> rows/columns are predicted;
+     * type rows/columns -> desks is derived; capacity auto-fills with
+     * desks x students-per-desk (unless it was manually overridden).
+     */
+    function refreshRoomMath(scope, changed) {
+        const get = k => scope.querySelector(`[data-k="${k}"]`);
+        const rowsEl = get('rows'), colsEl = get('cols'), desksEl = get('desks');
+        if (!rowsEl || !colsEl || !desksEl) return;
+        let rows = Number(rowsEl.value) || 0;
+        let cols = Number(colsEl.value) || 0;
+        let desks = Number(desksEl.value) || 0;
+
+        if (changed === 'desks') {
+            if (desks > 0) {
+                const g = predictGrid(desks);
+                if (g) { rows = g[0]; cols = g[1]; rowsEl.value = rows; colsEl.value = cols; }
+            } else if (rows > 0 && cols > 0) {
+                desks = rows * cols;
+                desksEl.value = desks;
+            }
+        } else if (changed === 'rows' || changed === 'cols') {
+            if (rows > 0 && cols > 0) {
+                desks = rows * cols;
+                desksEl.value = desks;
+            }
+        }
+
+        const perEl = get('per');
+        const per = (perEl ? Number(perEl.value) : 0) || 3;
+        const auto = (rows > 0 && cols > 0 ? rows * cols : desks) * per;
+        const capEl = get('cap');
+        if (capEl && auto > 0) {
+            const current = Number(capEl.value) || 0;
+            const tracked = Number(capEl.dataset.auto) || 0;
+            if (current === 0 || current === tracked) {
+                capEl.value = auto;
+                capEl.dataset.auto = String(auto);
+            }
+        }
+    }
+    document.addEventListener('input', e => {
+        const k = e.target.dataset && e.target.dataset.k;
+        if (!k) return;
+        const scope = e.target.closest('tr[data-edit]') || e.target.closest('#room-form');
+        if (scope) refreshRoomMath(scope, k);
+    });
+
+    async function addRoom() {
+        const form = $('room-form');
+        const val = k => Number(form.querySelector(`[data-k="${k}"]`).value) || 0;
+        let rows = val('rows'), cols = val('cols'), desks = val('desks');
+        const per = val('per') || 3;
+
+        // Desks typed but rows/columns not yet: predict the balanced grid.
+        if ((!rows || !cols) && desks > 0) {
+            const g = predictGrid(desks);
+            if (g) { rows = g[0]; cols = g[1]; }
+        }
+        if (rows > 0 && cols > 0) desks = rows * cols;
+        if (!rows || !cols) { rows = rows || 1; cols = cols || 1; desks = rows * cols; }
+
+        const payload = {
+            roomNumber: $('r-no').value.trim() || null,
+            rowsCount: rows,
+            columnsCount: cols,
+            studentsPerDesk: per,
+            capacity: Number($('r-cap').value) || desks * per
+        };
+        if (!payload.roomNumber) { toast('Enter a room number.', true); $('r-no').focus(); return; }
+        try {
+            await api('/api/rooms', jsonOpts('POST', payload));
+            ['r-no', 'r-rows', 'r-cols', 'r-desks', 'r-cap'].forEach(id => $(id).value = '');
+            $('r-per').value = '3';
+            delete $('r-cap').dataset.auto;
+            $('r-no').focus();
+            toast(`Room added: ${rows} x ${cols} desks, capacity ${payload.capacity}.`);
+            await loadRooms();
+        } catch (e) { toast(e.message, true); }
+    }
+    async function uploadRoomImport() {
+        const input = $('room-import-file');
+        if (!input.files.length) { toast('Choose a PDF or Excel file with room numbers and desk counts first.', true); return; }
+        const fd = new FormData();
+        fd.append('file', input.files[0]);
+        try {
+            const res = await api('/api/import/rooms', { method: 'POST', body: fd });
+            $('room-import-result').style.display = 'block';
+            $('room-import-counts').innerHTML = `
+                <div class="count"><b>${res.imported}</b> new rooms</div>
+                <div class="count"><b>${res.updated}</b> updated</div>
+                <div class="count"><b>${res.invalid}</b> invalid rows</div>
+                <div class="count"><b>${res.skipped}</b> blank rows</div>`;
+            $('room-import-notes').innerHTML = (res.notes || []).map(n => `<li>${esc(n)}</li>`).join('');
+            $('room-import-preview').innerHTML = res.preview && res.preview.length
+                ? res.preview.map(room => `<tr><td>${esc(room.roomNumber)}</td><td>${esc(room.desks)}</td>
+                    <td>${room.status === 'NEW'
+                        ? '<span class="badge" style="background:#10B981">NEW</span>'
+                        : '<span class="badge" style="background:#F59E0B">UPDATED</span>'}</td></tr>`).join('')
+                : '<tr><td colspan="3" class="empty">No valid rooms imported.</td></tr>';
+            toast(`Rooms imported: ${res.imported} new, ${res.updated} updated, ${res.invalid} invalid.`);
+            input.value = '';
+            await loadRooms();
+        } catch (e) { toast(e.message, true); }
+    }
+    function downloadRoomTemplate() {
+        const csv = 'room number,desks\n121,12\n122,24\n123,20\n';
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'room-import-template.csv';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    }
+    $('room-list').addEventListener('click', async e => {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+        const id = Number(btn.dataset.id);
+        try {
+            if (btn.dataset.act === 'edit') { editingRoomId = id; renderRooms(); }
+            else if (btn.dataset.act === 'cancel') { editingRoomId = null; renderRooms();            } else if (btn.dataset.act === 'save') {
+                const row = btn.closest('tr[data-edit]');
+                // Collect every edited field (room no, name, building, floor, grid, status).
+                const payload = {};
+                row.querySelectorAll('input, select').forEach(inp => {
+                    if (inp.dataset.f) payload[inp.dataset.f] = inp.value.trim() || null;
+                });
+                payload.rowsCount = Number(payload.rowsCount) || 1;
+                payload.columnsCount = Number(payload.columnsCount) || 1;
+                payload.studentsPerDesk = Number(payload.studentsPerDesk) || 1;
+                payload.capacity = Number(payload.capacity) || 0;
+                await api('/api/rooms/' + id, jsonOpts('PUT', payload));
+                editingRoomId = null;
+                toast('Room updated.');
+                await loadRooms();
+            } else if (btn.dataset.act === 'delete') {
+                if (!confirm('Delete this room and all of its seats?')) return;
+                await api('/api/rooms/' + id, jsonOpts('DELETE'));
+                toast('Room deleted.');
+                await loadRooms();
+            }
+        } catch (err) { toast(err.message, true); }
+    });
+
+    /* ================= exams ================= */
+    let exams = [];
+    let editingExamId = null;
+
+    async function loadExams() {
+        try {
+            const [list, conflicts] = await Promise.all([api('/api/exams'), api('/api/exams/conflicts')]);
+            exams = list;
+            renderExams();
+            renderExamConflicts(conflicts);
+        } catch (e) { toast(e.message, true); }
+    }
+    /** Red the conflicts panel: same date + time + audience exam pairs. */
+    function renderExamConflicts(list) {
+        const box = $('exam-conflicts');
+        if (!box) return;
+        if (!list || !list.length) {
+            box.style.display = 'none';
+            box.textContent = '';
+            return;
+        }
+        box.style.display = 'block';
+        box.className = 'message-box err';
+        box.innerHTML = `<b>${list.length} scheduling conflict(s) detected:</b>`
+            + '<ul style="margin:.4rem 0 0; padding-left:1.2rem">'
+            + list.map(c => `<li>${esc(c.message)}</li>`).join('') + '</ul>';
+    }
+    function fmtDate(d) { return d || '-'; }
+    function fmtTime(t) { return t ? String(t).slice(0, 5) : '-'; }
+    function renderExams() {
+        const tbody = $('exam-list');
+        if (!exams.length) {
+            tbody.innerHTML = '<tr><td colspan="7" class="empty">No exams yet. Create one above or upload exam data (PDF/Excel) in the Import Data tab.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = exams.map(x => {
+            if (editingExamId === x.id) {
+                return `<tr data-edit data-id="${x.id}">
+                    <td><input data-f="subjectName" value="${esc(x.subjectName)}" placeholder="Exam / Subject"></td>
+                    <td><input data-f="branch" value="${esc(x.branch)}" placeholder="Branch"></td>
+                    <td>${batchSelectHtml('course', x.course, 'All')}</td>
+                    <td><input data-f="examDate" type="date" value="${esc(x.examDate)}"></td>
+                    <td><input data-f="examTime" type="time" value="${x.examTime ? String(x.examTime).slice(0, 5) : ''}"></td>
+                    <td><input data-f="applicationId" value="${esc(x.applicationId)}" placeholder="App ID"></td>
+                    <td class="actions no-print">
+                        <button class="btn btn-sm btn-success" data-act="save" data-id="${x.id}">Save</button>
+                        <button class="btn btn-sm btn-ghost" data-act="cancel" data-id="${x.id}">Cancel</button>
+                    </td></tr>`;
+            }
+            const branch = x.branch ? esc(x.branch) : '<span class="muted">All</span>';
+            const batch = x.course ? `<span class="badge" style="background:#4F46E5">${esc(x.course)}</span>` : '<span class="muted">All</span>';
+            return `<tr>
+                <td><b>${esc(x.subjectName)}</b></td>
+                <td>${branch}</td>
+                <td>${batch}</td>
+                <td>${fmtDate(x.examDate)}</td>
+                <td>${fmtTime(x.examTime)}</td>
+                <td>${cellText(x.applicationId)}</td>
+                <td class="actions no-print">
+                    <button class="btn btn-sm btn-ghost" data-act="edit" data-id="${x.id}">Edit</button>
+                    <button class="btn btn-sm btn-danger" data-act="delete" data-id="${x.id}">Delete</button>
+                </td></tr>`;
+        }).join('');
+    }
+    function suggestAppId() {
+        const tag = (($('e-course').value || $('e-branch').value || 'EX').replace(/[^A-Za-z0-9]/g, '') || 'EX').toUpperCase();
+        const date = ($('e-date').value || new Date().toISOString().slice(0, 10)).replace(/-/g, '');
+        $('e-appid').value = `APP-${tag}-${date}-${String(exams.length + 1).padStart(3, '0')}`;
+    }
+    async function addExam() {
+        const payload = {
+            subjectName: $('e-subject').value.trim() || null,
+            branch: $('e-branch').value.trim() || null,
+            course: $('e-course').value.trim() || null,
+            examDate: $('e-date').value || null,
+            examTime: $('e-time').value || null,
+            applicationId: $('e-appid').value.trim() || null
+        };
+        if (!payload.subjectName) { toast('Enter the exam / subject name.', true); $('e-subject').focus(); return; }
+        if (!payload.examDate) { toast('Pick the exam date.', true); $('e-date').focus(); return; }
+        if (!payload.applicationId) {
+            const tag = ((payload.course || payload.branch || 'EX').replace(/[^A-Za-z0-9]/g, '') || 'EX').toUpperCase();
+            payload.applicationId = `APP-${tag}-${payload.examDate.replace(/-/g, '')}-${String(exams.length + 1).padStart(3, '0')}`;
+        }
+        try {
+            await api('/api/exams', jsonOpts('POST', payload));
+            ['e-subject', 'e-branch', 'e-date', 'e-time', 'e-appid'].forEach(id => $(id).value = '');
+            $('e-subject').focus();
+            toast('Exam created: ' + payload.applicationId);
+            await loadExams();
+        } catch (e) { toast(e.message, true); }
+    }
+    $('exam-list').addEventListener('click', async e => {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+        const id = Number(btn.dataset.id);
+        try {
+            if (btn.dataset.act === 'edit') { editingExamId = id; renderExams(); }
+            else if (btn.dataset.act === 'cancel') { editingExamId = null; renderExams(); }
+            else if (btn.dataset.act === 'save') {
+                const row = btn.closest('tr[data-edit]');
+                const payload = {};
+                row.querySelectorAll('input, select').forEach(inp => {
+                    if (inp.multiple) {
+                        payload[inp.dataset.f] = [...inp.selectedOptions].map(o => o.value).filter(v => v !== '').map(Number);
+                    } else {
+                        payload[inp.dataset.f] = inp.value.trim() || null;
+                    }
+                });
+                await api('/api/exams/' + id, jsonOpts('PUT', payload));
+                editingExamId = null;
+                toast('Exam updated.');
+                await loadExams();
+            } else if (btn.dataset.act === 'delete') {
+                if (!confirm('Delete this exam and its seating chart?')) return;
+                await api('/api/exams/' + id, jsonOpts('DELETE'));
+                toast('Exam deleted.');
+                await loadExams();
+            }
+        } catch (err) { toast(err.message, true); }
+    });
+
+    /* ================= allocation / chart ================= */
+    let seats = [];
+    let selectedExamId = null;
+
+    const PALETTE = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#0EA5E9', '#A855F7', '#EC4899', '#14B8A6'];
+    function courseColor(course) {
+        const key = course || 'Unspecified';
+        let hash = 0;
+        for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+        return PALETTE[hash % PALETTE.length];
+    }
+
+    async function loadAllocationTab() {
+        try {
+            [exams, students] = await Promise.all([api('/api/exams'), api('/api/students')]);
+            const select = $('alloc-exam');
+            const previous = selectedExamId;
+            select.innerHTML = exams.length
+                ? exams.map(x => `<option value="${x.id}">${esc(x.subjectName)}${x.course ? ' — ' + esc(x.course) : (x.branch ? ' — ' + esc(x.branch) : '')}${x.examDate ? ' — ' + x.examDate : ''}</option>`).join('')
+                : '<option value="">No exams yet — create one in the Exams tab</option>';
+            if (exams.length) {
+                const stillThere = previous && exams.some(x => x.id === previous);
+                select.value = stillThere ? previous : exams[exams.length - 1].id;
+                selectedExamId = Number(select.value);
+            } else {
+                selectedExamId = null;
+            }
+            $('btn-generate').disabled = !selectedExamId;
+            $('btn-pdf').disabled = !selectedExamId;
+            fillPdfSubjectSelect();
+            await loadSeatsForSelected();
+        } catch (e) { toast(e.message, true); }
+    }
+    function onExamSelected() {
+        selectedExamId = Number($('alloc-exam').value) || null;
+        $('allocation-message').className = 'message-box';
+        $('alloc-conflicts').style.display = 'none';
+        loadSeatsForSelected();
+    }
+    function currentExam() {
+        return exams.find(x => x.id === selectedExamId) || null;
+    }
+    async function loadSeatsForSelected() {
+        if (!selectedExamId) {
+            seats = [];
+            renderChart();
+            return;
+        }
+        try {
+            seats = await api('/api/seats?examId=' + selectedExamId);
+            renderChart();
+        } catch (e) { toast(e.message, true); }
+    }
+    async function generateAllocation() {
+        if (!selectedExamId) { toast('Create an exam first.', true); return; }
+        const picked = [...document.querySelectorAll('#alloc-room-list input[data-room-id]:checked')]
+            .map(c => Number(c.dataset.roomId));
+        if (!picked.length) { toast('Tick at least one available room for this exam.', true); return; }
+        try {
+            const res = await api('/api/allocate', jsonOpts('POST', { examId: selectedExamId, roomIds: picked }));
+            setMessage('allocation-message', res.message, !res.success);
+            const cbox = $('alloc-conflicts');
+            if (res.conflicts && res.conflicts.length) {
+                cbox.style.display = 'block';
+                cbox.className = 'message-box err';
+                cbox.innerHTML = '<b>Chart warnings:</b>'
+                    + '<ul style="margin:.4rem 0 0; padding-left:1.2rem">'
+                    + res.conflicts.map(c => `<li>${esc(c)}</li>`).join('') + '</ul>';
+            } else {
+                cbox.style.display = 'none';
+            }
+            await loadSeatsForSelected();
+        } catch (e) { setMessage('allocation-message', e.message, true); }
+    }
+
+    function matchesExam(s, exam) {
+        if (!exam) return true;
+        const b = (exam.branch || '').trim().toLowerCase();
+        if (!isAllTarget(b) && b !== (s.branch || '').trim().toLowerCase()) return false;
+        const c = (exam.course || '').trim().toLowerCase();
+        if (!isAllTarget(c)
+                && c !== (s.batch || '').trim().toLowerCase()
+                && c !== (s.branch || '').trim().toLowerCase()) return false;
+        const sems = Array.isArray(exam.semesters) && exam.semesters.length
+            ? exam.semesters
+            : (exam.semester != null ? [exam.semester] : []);
+        if (sems.length && s.semester != null && !sems.includes(Number(s.semester))) return false;
+        return true;
+    }
+
+    function renderChart() {
+        const container = $('chart-container');
+        const legend = $('chart-legend');
+        if (!seats.length) {
+            container.innerHTML = '<div class="empty">No chart yet for this exam. Click <b>Generate Seating Chart</b>.</div>';
+            legend.innerHTML = '';
+            $('alloc-stats').style.display = 'none';
+            $('unallocated-block').style.display = 'none';
+            return;
+        }
+
+        const groups = new Map();
+        seats.forEach(s => {
+            const rid = (s.room && s.room.id) != null ? s.room.id : 0;
+            if (!groups.has(rid)) groups.set(rid, { room: s.room, seats: [] });
+            groups.get(rid).seats.push(s);
+        });
+
+        const counts = {};
+        let allocated = 0;
+        seats.forEach(s => {
+            if (!s.allocatedStudent) return;
+            allocated++;
+            const c = groupKey(s.allocatedStudent);
+            counts[c] = (counts[c] || 0) + 1;
+        });
+
+        let html = '';
+        let deskTotal = 0;
+        for (const group of groups.values()) {
+            const room = group.room || {};
+            const cols = room.columnsCount || Math.max(...group.seats.map(s => s.columnNumber));
+            const rows = room.rowsCount || Math.max(...group.seats.map(s => s.rowNumber));
+            const map = new Map();
+            group.seats.forEach(s => {
+                const key = s.rowNumber + ':' + s.columnNumber;
+                if (!map.has(key)) map.set(key, []);
+                map.get(key).push(s);
+            });
+            map.forEach(arr => arr.sort((a, b) => (a.deskPosition || 1) - (b.deskPosition || 1)));
+            deskTotal += map.size;
+            const per = Math.max(...[...map.values()].map(a => a.length));
+            const deskLabel = `${rows} &times; ${cols} &middot; ${map.size} desks`
+                + (per > 1 ? ` &middot; ${per} students per desk` : '');
+            html += `<div class="room-block">
+                <div class="room-title">Room ${esc(room.roomNumber)} <span>${deskLabel}</span></div>
+                <div class="grid-scroll"><div class="seat-grid" style="grid-template-columns:36px repeat(${cols}, minmax(84px,1fr))">
+                <div class="corner"></div>`;
+            for (let c = 1; c <= cols; c++) html += `<div class="col-label">C${c}</div>`;
+            for (let r = 1; r <= rows; r++) {
+                html += `<div class="row-label">R${r}</div>`;
+                for (let c = 1; c <= cols; c++) {
+                    const cellSeats = map.get(r + ':' + c) || [];
+                    if (cellSeats.length <= 1) {
+                        const stu = cellSeats[0] && cellSeats[0].allocatedStudent;
+                        if (stu) {
+                            const color = courseColor(groupKey(stu));
+                            html += `<div class="seat" style="border-top:3px solid ${color}">
+                                <b>${esc(stu.rollNo) || '?'}</b>
+                                <span title="${esc(stu.name)}">${esc(stu.name) || '-'}</span>
+                                <em style="background:${color}" title="${esc(stu.branch || '')} · ${esc(stu.batch || '')}">${esc(groupKey(stu))}</em>
+                            </div>`;
+                        } else {
+                            html += '<div class="seat vacant">Vacant</div>';
+                        }
+                    } else {
+                        html += `<div class="seat multi" style="height:${Math.max(62, cellSeats.length * 34 + 10)}px">`;
+                        cellSeats.forEach(seat => {
+                            const stu = seat.allocatedStudent;
+                            if (stu) {
+                                const color = courseColor(groupKey(stu));
+                                html += `<div class="slot" style="border-left:3px solid ${color}" title="${esc(stu.rollNo) || '?'} · ${esc(stu.name) || '-'} · ${esc(stu.branch || 'No branch')} · ${esc(stu.batch || 'No batch')}"><b>${esc(stu.rollNo) || '?'}</b><span>${esc(stu.name) || '-'}</span><i>${esc(groupKey(stu))}</i></div>`;
+                            } else {
+                                html += '<div class="slot empty">Vacant</div>';
+                            }
+                        });
+                        html += '</div>';
+                    }
+                }
+            }
+            html += '</div></div></div>';
+        }
+        container.innerHTML = html;
+
+        legend.innerHTML = Object.keys(counts).length
+            ? Object.entries(counts).map(([c, n]) =>
+                `<span><span class="dot" style="background:${courseColor(c)}"></span>${esc(c)} (${n})</span>`).join('')
+            : '';
+
+        // stats + unallocated chips
+        const exam = currentExam();
+        const eligible = students.filter(s => matchesExam(s, exam));
+        const seatedIds = new Set(seats.filter(s => s.allocatedStudent).map(s => s.allocatedStudent.id));
+        const pending = eligible.filter(s => !seatedIds.has(s.id));
+
+        const stats = $('alloc-stats');
+        stats.style.display = 'flex';
+        stats.innerHTML = `
+            <div class="count"><b>${allocated}</b> seated</div>
+            <div class="count"><b>${eligible.length}</b> eligible students</div>
+            <div class="count"><b>${deskTotal}</b> desks</div>
+            <div class="count"><b>${groups.size}</b> rooms used</div>
+            <div class="count"><b>${seats.length - allocated}</b> vacant seats</div>`;
+
+        const block = $('unallocated-block');
+        if (pending.length) {
+            block.style.display = 'block';
+            $('unallocated-chips').innerHTML = pending.map(s =>
+                `<span class="chip">${esc(s.rollNo) || '?'} · ${esc(s.name) || '-'}</span>`).join('');
+        } else {
+            block.style.display = 'none';
+        }
+    }
+
+    async function downloadChartPdf() {
+        if (!selectedExamId) { toast('Create an exam first.', true); return; }
+        await downloadFile('/api/chart/pdf?examId=' + selectedExamId, 'seating-chart.pdf');
+    }
+
+    /* -------- Tree dropdown: subject -> class / room -> scoped PDF -------- */
+
+    /** Fills the subject level of the tree from the exam list (keeps selection). */
+    function fillPdfSubjectSelect() {
+        const sel = $('pdf-subject');
+        if (!sel) return;
+        const previous = sel.value;
+        sel.innerHTML = exams.length
+            ? exams.map(x => `<option value="${x.id}">${esc(x.subjectName)}${x.examDate ? ' — ' + x.examDate : ''}</option>`).join('')
+            : '<option value="">No exams yet — create one in the Exams tab</option>';
+        if (previous && exams.some(x => String(x.id) === previous)) sel.value = previous;
+        onPdfSubjectChange();
+    }
+
+    /** Second level: classes and rooms that actually hold seats of that subject. */
+    async function onPdfSubjectChange() {
+        const examId = Number($('pdf-subject').value) || 0;
+        const scope = $('pdf-scope');
+        const msg = $('pdf-tree-msg');
+        if (!examId) {
+            scope.innerHTML = '<option value="">Select a subject first</option>';
+            if (msg) msg.textContent = '';
+            return;
+        }
+        scope.innerHTML = '<option value="">Loading…</option>';
+        try {
+            const seats = await api('/api/seats?examId=' + examId);
+            const rooms = new Map();
+            const classes = new Set();
+            (seats || []).forEach(s => {
+                if (s.room && !rooms.has(String(s.room.id))) {
+                    rooms.set(String(s.room.id), s.room.displayName || s.room.roomNumber || ('#' + s.room.id));
+                }
+                if (s.allocatedStudent) {
+                    const batch = String(s.allocatedStudent.batch || '').trim();
+                    classes.add(batch || 'Unbatched');
+                }
+            });
+            const roomOpts = [...rooms.entries()]
+                .sort((a, b) => String(a[1]).localeCompare(String(b[1])))
+                .map(([id, label]) => `<option value="room:${id}">${esc(label)}</option>`).join('');
+            const classOpts = [...classes]
+                .sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }))
+                .map(k => `<option value="batch:${esc(k)}">${esc('Class ' + k)}</option>`).join('');
+            scope.innerHTML = '<option value="">Full chart (all classes &amp; rooms)</option>'
+                + (classOpts ? '<optgroup label="By class (attendance list)">' + classOpts + '</optgroup>' : '')
+                + (roomOpts ? '<optgroup label="By room">' + roomOpts + '</optgroup>' : '');
+            if (msg) {
+                const occupied = (seats || []).filter(s => s.allocatedStudent).length;
+                msg.textContent = (seats && seats.length)
+                    ? seats.length + ' seat cells, ' + occupied + ' allocated — pick a class or room, or keep the full chart.'
+                    : 'No seating chart for this subject yet — generate it first.';
+            }
+        } catch (e) {
+            scope.innerHTML = '<option value="">Could not load seats</option>';
+            if (msg) msg.textContent = e.message;
+        }
+    }
+
+    /** Generates the scoped PDF for the current tree selection. */
+    async function downloadScopedChartPdf() {
+        const examId = Number($('pdf-subject').value) || 0;
+        if (!examId) { toast('Select a subject first.', true); return; }
+        const value = $('pdf-scope').value || '';
+        let url = '/api/chart/pdf?examId=' + examId;
+        if (value.startsWith('room:')) url += '&roomId=' + encodeURIComponent(value.slice(5));
+        else if (value.startsWith('batch:')) url += '&batch=' + encodeURIComponent(value.slice(6));
+        await downloadFile(url, 'seating-chart.pdf');
+    }
+    async function downloadFile(url, fallback) {
+        try {
+            const res = await fetch(url);
+            if (!res.ok) {
+                const text = await res.text();
+                let msg = text;
+                try { msg = JSON.parse(text).message; } catch (e) { /* keep raw */ }
+                throw new Error(msg || ('HTTP ' + res.status));
+            }
+            const blob = await res.blob();
+            const cd = res.headers.get('Content-Disposition') || '';
+            const m = /filename="?([^";]+)"?/.exec(cd);
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = m ? m[1] : fallback;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        } catch (e) { toast(e.message, true); }
+    }
+
+    /* ================= import ================= */
+    async function uploadImport() {
+        const input = $('import-file');
+        if (!input.files.length) { toast('Choose a PDF or Excel file first.', true); return; }
+        const fd = new FormData();
+        fd.append('file', input.files[0]);
+        try {
+            const res = await api('/api/import/students', { method: 'POST', body: fd });
+            renderImportResult(res);
+            toast(`Imported ${res.imported}, updated ${res.updated}, skipped ${res.skipped}.`);
+            input.value = '';
+            await loadStudents();   // re-fetch AND re-render the table immediately
+        } catch (e) { toast(e.message, true); }
+    }
+    function renderImportResult(res) {
+        $('import-result').style.display = 'block';
+        $('import-counts').innerHTML = `
+            <div class="count"><b>${res.imported}</b> new students</div>
+            <div class="count"><b>${res.updated}</b> updated</div>
+            <div class="count"><b>${res.skipped}</b> rows skipped</div>
+            <div class="count"><b>${res.missingCells}</b> cells stored as null</div>`;
+        $('import-notes').innerHTML = (res.notes || []).map(n => `<li>${esc(n)}</li>`).join('');
+        const tbody = $('import-preview');
+        if (!res.preview || !res.preview.length) {
+            tbody.innerHTML = '<tr><td colspan="5" class="empty">No rows imported.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = res.preview.map(p => `<tr>
+            <td>${cellText(p.rollNo)}</td><td>${cellText(p.name)}</td>
+            <td>${cellText(p.branch)}</td><td>${cellText(p.batch)}</td>
+            <td>${cellText(p.missing)}</td></tr>`).join('');
+    }
+    function downloadTemplate() {
+        const csv = 'roll no,name,branch,batch\n1,Akshay,CEC,E\n2,Priya Sharma,CEC,A\n3,,MEC,B\n';
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'student-import-template.csv';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    }
+
+    /* ---- import mode switch (students / exam data / rooms) ---- */
+    function setImportMode(mode) {
+        ['students', 'exams', 'rooms'].forEach(m => {
+            $('import-mode-' + m).style.display = mode === m ? 'block' : 'none';
+        });
+        const on = {
+            students: ' btn-success',
+            exams: ' btn-amber',
+            rooms: ' btn-success'
+        };
+        ['students', 'exams', 'rooms'].forEach(m => {
+            $('mode-' + m + '-btn').className = 'btn' + (mode === m ? on[m] : ' btn-ghost');
+        });
+    }
+
+    /* ---- exam data upload (PDF / Excel / CSV) ---- */
+    async function uploadExamImport() {
+        const input = $('exam-import-file');
+        if (!input.files.length) { toast('Choose a PDF or Excel file with exam data first.', true); return; }
+        const fd = new FormData();
+        fd.append('file', input.files[0]);
+        try {
+            const res = await api('/api/import/exams', { method: 'POST', body: fd });
+            renderExamImportResult(res);
+            toast(`Exam data imported: ${res.imported} new, ${res.updated} updated, ${res.invalid} invalid.`);
+            input.value = '';
+            await loadExams();
+        } catch (e) { toast(e.message, true); }
+    }
+    function renderExamImportResult(res) {
+        $('exam-import-result').style.display = 'block';
+        $('exam-import-counts').innerHTML = `
+            <div class="count"><b>${res.imported}</b> new exams</div>
+            <div class="count"><b>${res.updated}</b> updated</div>
+            <div class="count"><b>${res.invalid}</b> invalid rows</div>
+            <div class="count"><b>${res.skipped}</b> blank rows</div>`;
+        $('exam-import-notes').innerHTML = (res.notes || []).map(n => `<li>${esc(n)}</li>`).join('');
+        const cbox = $('exam-import-conflicts');
+        if (res.conflicts && res.conflicts.length) {
+            cbox.style.display = 'block';
+            cbox.className = 'message-box err';
+            cbox.innerHTML = `<b>${res.conflicts.length} scheduling conflict(s):</b>`
+                + '<ul style="margin:.4rem 0 0; padding-left:1.2rem">'
+                + res.conflicts.map(c => `<li>${esc(c)}</li>`).join('') + '</ul>';
+        } else {
+            cbox.style.display = 'none';
+        }
+        const tbody = $('exam-import-preview');
+        if (!res.preview || !res.preview.length) {
+            tbody.innerHTML = '<tr><td colspan="7" class="empty">No valid exam rows found.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = res.preview.map(p => `<tr>
+            <td>${cellText(p.subjectName)}</td><td>${cellText(p.branch)}</td><td>${cellText(p.course)}</td>
+            <td>${cellText(p.examDate)}</td><td>${cellText(p.examTime)}</td><td>${cellText(p.applicationId)}</td>
+            <td>${p.status === 'NEW'
+                ? '<span class="badge" style="background:#10B981">NEW</span>'
+                : '<span class="badge" style="background:#F59E0B">UPDATED</span>'}</td></tr>`).join('');
+    }
+    function downloadExamTemplate() {
+        const csv = 'subject,branch,batch,date,time\n'
+            + 'Mathematics,CEC,A,02/11/2026,10:00\n'
+            + 'Physics,CEC,B,03/11/2026,10:00\n'
+            + 'Chemistry,MEC,A,04/11/2026,14:00\n';
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'exam-import-template.csv';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    }
+
+    /* ================= dashboard ================= */
+    async function loadDashboard() {
+        try {
+            const [s, r, e, allSeats, b] = await Promise.all([
+                api('/api/students'), api('/api/rooms'), api('/api/exams'), api('/api/seats'), api('/api/batches')
+            ]);
+            $('stat-students').textContent = s.length;
+            $('stat-rooms').textContent = r.length;
+            $('stat-batches').textContent = b.length;
+            $('stat-exams').textContent = e.length;
+            $('stat-seats').textContent = allSeats.filter(x => x.allocatedStudent).length;
+        } catch (err) { toast(err.message, true); }
+    }
+
+    /* Debounced table re-render for the search fields (avoids re-rendering 200+ rows per keystroke). */
+    let _stuSearchTimer = null;
+    function scheduleRenderStudents() { clearTimeout(_stuSearchTimer); _stuSearchTimer = setTimeout(() => renderStudents(), 180); }
+    let _roomSearchTimer = null;
+    function scheduleRenderRooms() { clearTimeout(_roomSearchTimer); _roomSearchTimer = setTimeout(() => renderRooms(), 180); }
+
+    /* ================= init ================= */
+    wireEnterNav($('student-form'), addStudent);
+    wireEnterNav($('room-form'), () => window.addRoom());   // resolves the extended handler from app.js
+    wireEnterNav($('batch-form'), addBatch);
+    wireEnterNav($('exam-form'), () => window.addExam());
+
+    const studentTabsElement = $('student-tabs');
+    if (studentTabsElement) {
+        studentTabsElement.addEventListener('click', event => {
+            if (event.target.closest('.tab')) closeResponsiveMenu('student');
+        });
+    }
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+            closeResponsiveMenu('admin');
+            closeResponsiveMenu('student');
+        }
+    });
+    document.addEventListener('click', event => {
+        if (window.matchMedia('(max-width: 760px)').matches) {
+            for (const role of ['admin', 'student']) {
+                const tabs = $(role + '-tabs');
+                const toggle = $(role + '-nav-toggle');
+                const app = $(role + '-app');
+                if (!tabs || !toggle || !app || app.style.display === 'none') continue;
+                const menuOpen = !tabs.classList.contains('is-collapsed');
+                if (menuOpen && !event.target.closest('#' + role + '-tabs') && !event.target.closest('#' + role + '-nav-toggle')) {
+                    closeResponsiveMenu(role);
+                }
+            }
+        }
+    });
+
+    /* Bootstrap (session restore + login) runs in app.js after this script, so no
+       request is fired before the user has signed in. */
+    </script>
+    <script src="app.js"></script>
+</body>
+</html>
