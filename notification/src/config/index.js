@@ -34,7 +34,15 @@ function warn(message) {
  * always start locally, with a warning in dev (silenced in tests).
  */
 export function loadConfig(overrides = {}) {
-  const port = readInt('PORT', 3000);
+  let port = readInt('PORT', 3000);
+  // PORT=0 would bind a random ephemeral port while SITE_URL keeps pointing at
+  // a fixed origin - every client would then hit the wrong port (connection
+  // refused or another app's 404/5xx). The launcher shell can leak PORT=0
+  // (dotenv never overrides an already-set env var), so treat 0 as unset.
+  if (port === 0) {
+    warn('PORT=0 would bind a random port - using the default 3000 instead.');
+    port = 3000;
+  }
   const rawSiteUrl = process.env.SITE_URL || `http://localhost:${port}`;
   let siteUrl;
   let siteOrigin;
