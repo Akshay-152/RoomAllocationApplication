@@ -1,6 +1,5 @@
 package com.exam.allocation.controller;
 
-import com.exam.allocation.controller.AllocationController;
 import com.exam.allocation.model.*;
 import com.exam.allocation.repository.*;
 import com.exam.allocation.service.AllocationService;

@@ -96,7 +96,7 @@ public class RoomImportService {
             int[] grid = predictGrid(desks);
             Room room = roomRepository.findByRoomNumber(roomNumber);
             boolean update = room != null;
-            if (!update) room = new Room();
+            if (room == null) room = new Room();
             room.setRoomNumber(roomNumber);
             room.setRowsCount(grid[0]);
             room.setColumnsCount(grid[1]);

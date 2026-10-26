@@ -1,6 +1,5 @@
 package com.exam.allocation.controller;
 
-import com.exam.allocation.service.AuditService;
 import com.exam.allocation.service.CampaignService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -31,7 +30,6 @@ import java.util.Map;
 public class CampaignController {
 
     @Autowired private CampaignService campaignService;
-    @Autowired private AuditService auditService;
 
     // ---------------------------------------------------------------- campaigns
 

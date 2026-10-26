@@ -63,7 +63,7 @@ public class AdminDashboardController {
         stats.put("totalStudents", activeStudents);
         stats.put("inactiveStudents", students.size() - activeStudents);
         stats.put("totalRooms", rooms.size());
-        stats.put("activeRooms", rooms.stream().filter(Room::isActive).count());
+        stats.put("activeRooms", rooms.stream().filter(room -> room != null && room.isActive()).count());
         stats.put("totalBatches", batchRepository.count());
         stats.put("totalExams", exams.size());
         stats.put("draftExams", exams.stream().filter(e -> e.getStatus() == Exam.ExamStatus.DRAFT).count());
@@ -141,7 +141,7 @@ public class AdminDashboardController {
 
     @DeleteMapping("/announcements/{id}")
     public Map<String, Object> deleteAnnouncement(@PathVariable Long id) {
-        announcementRepository.deleteById(id);
+        announcementRepository.deleteById(java.util.Objects.requireNonNull(id));
         auditService.record(actor(), "ANNOUNCEMENT_DELETED", "announcement:" + id, null);
         return Map.of("deleted", true);
     }
@@ -209,7 +209,7 @@ public class AdminDashboardController {
 
     @DeleteMapping("/departments/{id}")
     public Map<String, Object> deleteDepartment(@PathVariable Long id) {
-        departmentRepository.deleteById(id);
+        departmentRepository.deleteById(java.util.Objects.requireNonNull(id));
         return Map.of("deleted", true);
     }
 
@@ -232,7 +232,7 @@ public class AdminDashboardController {
 
     @DeleteMapping("/subjects/{id}")
     public Map<String, Object> deleteSubject(@PathVariable Long id) {
-        subjectRepository.deleteById(id);
+        subjectRepository.deleteById(java.util.Objects.requireNonNull(id));
         return Map.of("deleted", true);
     }
 

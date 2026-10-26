@@ -179,7 +179,7 @@ public class ExamImportService {
             boolean duplicate = !seenKeys.add(key);
             Exam exam = findExisting(subject, date);
             boolean isNew = exam == null;
-            if (isNew) exam = new Exam();
+            if (exam == null) exam = new Exam();
 
             exam.setSubjectName(subject);
             exam.setBranch(branch);

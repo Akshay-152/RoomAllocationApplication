@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -190,7 +191,7 @@ class CampaignServiceTest {
         when(webPushService.sendOne(eq(dead), anyString())).thenReturn(gone());
         when(deliveries.findByCampaignIdAndSubscriptionId(any(), any())).thenReturn(Optional.empty());
         when(deliveries.save(any(CampaignDelivery.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(subscriptions.saveAll(any(List.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(subscriptions.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
 
         campaignService.startSend(7L);
 

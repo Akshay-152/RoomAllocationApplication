@@ -112,7 +112,7 @@ class ExamNotificationServiceTest {
 
         examNotificationService.examPublished(maths);
 
-        ArgumentCaptor<List<Student>> targets = ArgumentCaptor.forClass(List.class);
+        ArgumentCaptor<List<Student>> targets = ArgumentCaptor.captor();
         verify(notificationService).notify(targets.capture(), eq(Type.EXAM_PUBLISHED),
                 anyString(), anyString(), eq("exams"), eq(1L), anyString());
         assertEquals(1, targets.getValue().size());

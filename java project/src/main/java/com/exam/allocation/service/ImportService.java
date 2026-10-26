@@ -75,7 +75,8 @@ public class ImportService {
 
     public ImportResult importStudents(MultipartFile file) throws IOException {
         List<String[]> rows = fileTableReader.read(file);
-        String original = file.getOriginalFilename() == null ? "" : file.getOriginalFilename();
+        String originalName = file.getOriginalFilename();
+        String original = originalName == null ? "" : originalName;
 
         ImportResult result = new ImportResult();
         result.setFileName(original);

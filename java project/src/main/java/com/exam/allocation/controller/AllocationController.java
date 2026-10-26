@@ -79,7 +79,7 @@ public class AllocationController {
 
     @PutMapping("/students/{id}")
     public Student updateStudent(@PathVariable Long id, @RequestBody Student student) {
-        Student existing = studentRepository.findById(id)
+        Student existing = studentRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new IllegalArgumentException("Student not found with id " + id));
         ensureRollNoFree(student.getRollNo(), id);
         ExamSemesterService.validateSemester(student.getSemester());
@@ -108,7 +108,7 @@ public class AllocationController {
     /** Deletes a student together with the login account and any seat references. */
     @DeleteMapping("/students/{id}")
     public Map<String, Object> deleteStudent(@PathVariable Long id) {
-        Student student = studentRepository.findById(id)
+        Student student = studentRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new IllegalArgumentException("Student not found with id " + id));
         List<Seat> seated = seatRepository.findByAllocatedStudentId(id);
         seated.forEach(seat -> seat.setAllocatedStudent(null));
@@ -117,7 +117,7 @@ public class AllocationController {
         // Notification history and device registrations follow the student.
         notificationService.deleteForStudent(id);
         userAccountService.deleteAccountFor(student.getRollNo());
-        studentRepository.deleteById(id);
+        studentRepository.deleteById(java.util.Objects.requireNonNull(id));
         auditService.record(actor(), "STUDENT_DELETED", "student:" + id,
                 "Roll no " + student.getRollNo() + " deleted.");
         return Map.of("deleted", true, "clearedSeats", seated.size());
@@ -126,7 +126,7 @@ public class AllocationController {
     /** Administrator password reset for a student. */
     @PostMapping("/students/{id}/reset-password")
     public Map<String, Object> resetPassword(@PathVariable Long id, @RequestBody Map<String, String> body) {
-        Student student = studentRepository.findById(id)
+        Student student = studentRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new IllegalArgumentException("Student not found with id " + id));
         String newPassword = body.get("password");
         if (newPassword == null || newPassword.length() < 4) {
@@ -141,7 +141,7 @@ public class AllocationController {
     /** Enables or disables a student account (a disabled student cannot sign in). */
     @PostMapping("/students/{id}/status")
     public Map<String, Object> setStudentStatus(@PathVariable Long id, @RequestBody Map<String, String> body) {
-        Student student = studentRepository.findById(id)
+        Student student = studentRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new IllegalArgumentException("Student not found with id " + id));
         String status = body.getOrDefault("status", "");
         if (!status.equalsIgnoreCase("ACTIVE") && !status.equalsIgnoreCase("INACTIVE")) {
@@ -174,7 +174,7 @@ public class AllocationController {
 
     @PutMapping("/rooms/{id}")
     public Room updateRoom(@PathVariable Long id, @RequestBody Room room) {
-        Room existing = roomRepository.findById(id)
+        Room existing = roomRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new IllegalArgumentException("Room not found with id " + id));
         ensureRoomNumberFree(room.getRoomNumber(), id);
         String previousNumber = existing.getRoomNumber();
@@ -205,7 +205,7 @@ public class AllocationController {
     /** Deactivates (or re-activates) a room; inactive rooms are never used for new allocations. */
     @PostMapping("/rooms/{id}/status")
     public Map<String, Object> setRoomStatus(@PathVariable Long id, @RequestBody Map<String, Object> body) {
-        Room room = roomRepository.findById(id)
+        Room room = roomRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new IllegalArgumentException("Room not found with id " + id));
         boolean active = Boolean.parseBoolean(String.valueOf(body.getOrDefault("active", "true")));
         room.setActive(active);
@@ -216,14 +216,14 @@ public class AllocationController {
 
     @DeleteMapping("/rooms/{id}")
     public Map<String, Object> deleteRoom(@PathVariable Long id) {
-        if (!roomRepository.existsById(id)) {
+        if (!roomRepository.existsById(java.util.Objects.requireNonNull(id))) {
             throw new IllegalArgumentException("Room not found with id " + id);
         }
         examRoomRepository.deleteByRoomId(id);
         seatAllocationRepository.deleteByRoomId(id);
-        seatRepository.deleteAll(seatRepository.findByRoomId(id));
+        seatRepository.deleteAll(java.util.Objects.requireNonNull(seatRepository.findByRoomId(id)));
         // All allocations under this room are now abandoned (explicit row deletion, not orphaned).
-        roomRepository.deleteById(id);
+        roomRepository.deleteById(java.util.Objects.requireNonNull(id));
         auditService.record(actor(), "ROOM_DELETED", "room:" + id, "Room deleted; allocations/seats cleared.");
         return Map.of("deleted", true);
     }
@@ -246,7 +246,7 @@ public class AllocationController {
             if (exams.isEmpty()) {
                 return failure("No exams found. Create an exam first, then generate the chart.");
             }
-            examId = exams.stream().max(Comparator.comparing(Exam::getId)).map(Exam::getId).orElse(null);
+            examId = exams.stream().max(Comparator.comparing(exam -> exam.getId())).map(exam -> exam.getId()).orElse(null);
         }
 
         List<Long> roomIds;
@@ -254,8 +254,8 @@ public class AllocationController {
             List<Long> requested = list.stream().map(v -> Long.valueOf(String.valueOf(v))).collect(Collectors.toList());
             // Only rooms that are marked available may be used for a new allocation.
             java.util.Set<Long> activeIds = roomRepository.findAll().stream()
-                    .filter(Room::isActive)
-                    .map(Room::getId)
+                    .filter(room -> room != null && room.isActive())
+                    .map(room -> room.getId())
                     .collect(Collectors.toSet());
             roomIds = requested.stream().filter(activeIds::contains).collect(Collectors.toList());
             if (roomIds.isEmpty()) {
@@ -263,8 +263,8 @@ public class AllocationController {
             }
         } else {
             roomIds = roomRepository.findAll().stream()
-                    .filter(Room::isActive)
-                    .map(Room::getId)
+                    .filter(room -> room != null && room.isActive())
+                    .map(room -> room.getId())
                     .collect(Collectors.toList());
         }
         if (roomIds.isEmpty()) {
@@ -284,7 +284,7 @@ public class AllocationController {
     @PostMapping("/allocations/{examId}/publish")
     public Map<String, Object> publishAllocations(@PathVariable Long examId) {
         int published = allocationService.publishAllocations(examId);
-        Exam exam = examRepository.findById(examId)
+        Exam exam = examRepository.findById(java.util.Objects.requireNonNull(examId))
                 .orElseThrow(() -> new IllegalArgumentException("Exam not found with id " + examId));
         // Notify each newly-(re)published student; a changed seat produces a
         // "seat changed" notification, an unchanged one is deduplicated.
@@ -340,9 +340,9 @@ public class AllocationController {
                 : seatRepository.findAll();
         seats.sort(Comparator
                 .comparing((Seat s) -> s.getRoom() == null ? 0L : s.getRoom().getId())
-                .thenComparingInt(Seat::getRowNumber)
-                .thenComparingInt(Seat::getColumnNumber)
-                .thenComparingInt(Seat::getDeskPosition));
+                .thenComparingInt(seat -> seat.getRowNumber())
+                .thenComparingInt(seat -> seat.getColumnNumber())
+                .thenComparingInt(seat -> seat.getDeskPosition()));
         return seats;
     }
 
@@ -378,10 +378,10 @@ public class AllocationController {
     }
 
     private void rememberExamRooms(Long examId, List<Long> roomIds) {
-        Exam exam = examRepository.findById(examId).orElse(null);
+        Exam exam = examRepository.findById(java.util.Objects.requireNonNull(examId)).orElse(null);
         if (exam == null) return;
         examRoomRepository.deleteByExamId(examId);
-        for (Room room : roomRepository.findAllById(roomIds)) {
+        for (Room room : roomRepository.findAllById(java.util.Objects.requireNonNull(roomIds))) {
             examRoomRepository.save(new ExamRoom(exam, room));
         }
     }

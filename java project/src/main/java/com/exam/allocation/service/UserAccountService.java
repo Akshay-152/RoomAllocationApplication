@@ -48,8 +48,7 @@ public class UserAccountService implements UserDetailsService {
             throw new IllegalArgumentException("A roll number is required to create a student login account.");
         }
         User user = userRepository.findByUsername(rollNo);
-        boolean fresh = user == null;
-        if (fresh) {
+        if (user == null) {
             user = new User(rollNo, passwordEncoder.encode(rollNo), User.Role.STUDENT);
             user.setStudent(student);
             user.setMustChangePassword(true);

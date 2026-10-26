@@ -852,22 +852,6 @@
                 <button class="btn btn-ghost" onclick="loadSeatsForSelected()">Refresh</button>
             </div>
             <div id="alloc-status" class="hint" style="margin-top:.4rem"></div>
-            <div id="pdf-tree-block" class="no-print" style="margin-top:.9rem; border:1px solid #E5E7EB; border-radius:10px; padding:.7rem .8rem; background:#F8FAFC">
-                <h4 style="margin:.1rem 0">Download PDF &mdash; tree dropdown (teacher copy)</h4>
-                <p class="hint" style="margin:0">Select the <b>subject</b>, then drill into a <b>class</b> or a <b>room</b> (or keep the full chart). The PDF keeps the exact same layout and wording as the official chart &mdash; grid plus the student list with <b>Roll No and Seat</b> for the concerned teacher to review attendance. The <b>Download Chart PDF</b> button above always produces the complete chart, unchanged.</p>
-                <div class="form-row" style="margin-top:.5rem">
-                    <div class="field grow">
-                        <label for="pdf-subject">Subject (exam)</label>
-                        <select id="pdf-subject" onchange="onPdfSubjectChange()"></select>
-                    </div>
-                    <div class="field grow">
-                        <label for="pdf-scope">Class / room</label>
-                        <select id="pdf-scope"></select>
-                    </div>
-                    <button class="btn btn-success" id="btn-pdf-generate" onclick="downloadScopedChartPdf()">Generate PDF</button>
-                </div>
-                <div id="pdf-tree-msg" class="hint" style="margin:.35rem 0 0"></div>
-            </div>
             <div id="alloc-room-block" style="margin-top:.9rem">
                 <h4 style="margin:.2rem 0">Rooms for this exam</h4>
                 <p class="hint" style="margin:0">Tick the rooms marked available in Room Management that should be used for this seating chart. The total selected capacity must cover every eligible student.</p>
@@ -1935,7 +1919,6 @@
             }
             $('btn-generate').disabled = !selectedExamId;
             $('btn-pdf').disabled = !selectedExamId;
-            fillPdfSubjectSelect();
             await loadSeatsForSelected();
         } catch (e) { toast(e.message, true); }
     }
@@ -2115,75 +2098,6 @@
         await downloadFile('/api/chart/pdf?examId=' + selectedExamId, 'seating-chart.pdf');
     }
 
-    /* -------- Tree dropdown: subject -> class / room -> scoped PDF -------- */
-
-    /** Fills the subject level of the tree from the exam list (keeps selection). */
-    function fillPdfSubjectSelect() {
-        const sel = $('pdf-subject');
-        if (!sel) return;
-        const previous = sel.value;
-        sel.innerHTML = exams.length
-            ? exams.map(x => `<option value="${x.id}">${esc(x.subjectName)}${x.examDate ? ' — ' + x.examDate : ''}</option>`).join('')
-            : '<option value="">No exams yet — create one in the Exams tab</option>';
-        if (previous && exams.some(x => String(x.id) === previous)) sel.value = previous;
-        onPdfSubjectChange();
-    }
-
-    /** Second level: classes and rooms that actually hold seats of that subject. */
-    async function onPdfSubjectChange() {
-        const examId = Number($('pdf-subject').value) || 0;
-        const scope = $('pdf-scope');
-        const msg = $('pdf-tree-msg');
-        if (!examId) {
-            scope.innerHTML = '<option value="">Select a subject first</option>';
-            if (msg) msg.textContent = '';
-            return;
-        }
-        scope.innerHTML = '<option value="">Loading…</option>';
-        try {
-            const seats = await api('/api/seats?examId=' + examId);
-            const rooms = new Map();
-            const classes = new Set();
-            (seats || []).forEach(s => {
-                if (s.room && !rooms.has(String(s.room.id))) {
-                    rooms.set(String(s.room.id), s.room.displayName || s.room.roomNumber || ('#' + s.room.id));
-                }
-                if (s.allocatedStudent) {
-                    const batch = String(s.allocatedStudent.batch || '').trim();
-                    classes.add(batch || 'Unbatched');
-                }
-            });
-            const roomOpts = [...rooms.entries()]
-                .sort((a, b) => String(a[1]).localeCompare(String(b[1])))
-                .map(([id, label]) => `<option value="room:${id}">${esc(label)}</option>`).join('');
-            const classOpts = [...classes]
-                .sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }))
-                .map(k => `<option value="batch:${esc(k)}">${esc('Class ' + k)}</option>`).join('');
-            scope.innerHTML = '<option value="">Full chart (all classes &amp; rooms)</option>'
-                + (classOpts ? '<optgroup label="By class (attendance list)">' + classOpts + '</optgroup>' : '')
-                + (roomOpts ? '<optgroup label="By room">' + roomOpts + '</optgroup>' : '');
-            if (msg) {
-                const occupied = (seats || []).filter(s => s.allocatedStudent).length;
-                msg.textContent = (seats && seats.length)
-                    ? seats.length + ' seat cells, ' + occupied + ' allocated — pick a class or room, or keep the full chart.'
-                    : 'No seating chart for this subject yet — generate it first.';
-            }
-        } catch (e) {
-            scope.innerHTML = '<option value="">Could not load seats</option>';
-            if (msg) msg.textContent = e.message;
-        }
-    }
-
-    /** Generates the scoped PDF for the current tree selection. */
-    async function downloadScopedChartPdf() {
-        const examId = Number($('pdf-subject').value) || 0;
-        if (!examId) { toast('Select a subject first.', true); return; }
-        const value = $('pdf-scope').value || '';
-        let url = '/api/chart/pdf?examId=' + examId;
-        if (value.startsWith('room:')) url += '&roomId=' + encodeURIComponent(value.slice(5));
-        else if (value.startsWith('batch:')) url += '&batch=' + encodeURIComponent(value.slice(6));
-        await downloadFile(url, 'seating-chart.pdf');
-    }
     async function downloadFile(url, fallback) {
         try {
             const res = await fetch(url);
