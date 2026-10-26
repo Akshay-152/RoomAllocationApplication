@@ -9,6 +9,7 @@ import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 import java.util.Map;
+import java.nio.file.NoSuchFileException;
 
 /**
  * Turns exceptions into simple JSON {"message": "..."} responses so the UI can
@@ -27,6 +28,11 @@ public class ApiExceptionHandler {
     public ResponseEntity<Map<String, String>> handleConflict(DataIntegrityViolationException ex) {
         return ResponseEntity.status(409).body(Map.of("message",
                 "Data conflict: duplicate or invalid data (e.g. a duplicate roll number or room number)."));
+    }
+
+    @ExceptionHandler(NoSuchFileException.class)
+    public ResponseEntity<Map<String, String>> handleMissingStoredFile(NoSuchFileException ex) {
+        return ResponseEntity.status(404).body(Map.of("message", "Announcement attachment not found."));
     }
 
     @ExceptionHandler({MultipartException.class, MissingServletRequestPartException.class,

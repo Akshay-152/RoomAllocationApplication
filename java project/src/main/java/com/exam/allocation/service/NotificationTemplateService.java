@@ -64,6 +64,11 @@ public class NotificationTemplateService {
                 "Seat changed: {subject}",
                 "Your seat for {subject} has changed. {seat}.",
                 List.of("subject", "seat", "when", "date")));
+        DEFAULTS.put(Type.SEAT_UNPUBLISHED, new Template(
+                "Seating withdrawn",
+                "Seating withdrawn: {subject}",
+                "The published seating for {subject} has been withdrawn. Please check My Seat again later.",
+                List.of("subject", "seat", "when", "date")));
         DEFAULTS.put(Type.ROOM_CHANGED, new Template(
                 "Room updated",
                 "Room updated: {room}",

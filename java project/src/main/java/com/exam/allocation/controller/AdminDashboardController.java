@@ -3,12 +3,18 @@ package com.exam.allocation.controller;
 import com.exam.allocation.model.*;
 import com.exam.allocation.repository.*;
 import com.exam.allocation.service.AuditService;
+import com.exam.allocation.service.AnnouncementAttachmentService;
 import com.exam.allocation.service.NotificationService;
 import com.exam.allocation.service.NotificationTemplateService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -21,6 +27,8 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/admin")
 public class AdminDashboardController {
 
+    private static final Logger log = LoggerFactory.getLogger(AdminDashboardController.class);
+
     @Autowired private StudentRepository studentRepository;
     @Autowired private RoomRepository roomRepository;
     @Autowired private ExamRepository examRepository;
@@ -31,6 +39,7 @@ public class AdminDashboardController {
     @Autowired private DepartmentRepository departmentRepository;
     @Autowired private SubjectRepository subjectRepository;
     @Autowired private AuditService auditService;
+    @Autowired private AnnouncementAttachmentService announcementAttachmentService;
     @Autowired private NotificationService notificationService;
     @Autowired private NotificationTemplateService notificationTemplateService;
 
@@ -90,8 +99,35 @@ public class AdminDashboardController {
         return announcementRepository.findAllByOrderByCreatedAtDesc();
     }
 
-    @PostMapping("/announcements")
+    @PostMapping(value = "/announcements", consumes = MediaType.APPLICATION_JSON_VALUE)
     public Map<String, Object> createAnnouncement(@RequestBody Announcement body) {
+        return publishAnnouncement(body);
+    }
+
+    /** Creates a targeted announcement with a private PDF attachment. */
+    @PostMapping(value = "/announcements", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Map<String, Object> createAnnouncementWithAttachment(
+            @RequestPart("announcement") Announcement body,
+            @RequestPart("file") MultipartFile file) throws IOException {
+        AnnouncementAttachmentService.StoredAttachment attachment =
+                announcementAttachmentService.store(file);
+        body.setAttachmentStorageKey(attachment.storageKey());
+        body.setAttachmentFileName(attachment.fileName());
+        try {
+            return publishAnnouncement(body);
+        } catch (RuntimeException ex) {
+            try {
+                announcementAttachmentService.delete(attachment.storageKey());
+            } catch (IOException cleanupFailure) {
+                log.error("Could not remove failed announcement attachment {}", attachment.storageKey(),
+                        cleanupFailure);
+                ex.addSuppressed(cleanupFailure);
+            }
+            throw ex;
+        }
+    }
+
+    private Map<String, Object> publishAnnouncement(Announcement body) {
         if (body.getTitle() == null || body.getTitle().isBlank()) {
             throw new IllegalArgumentException("An announcement needs a title.");
         }
@@ -140,8 +176,13 @@ public class AdminDashboardController {
     }
 
     @DeleteMapping("/announcements/{id}")
-    public Map<String, Object> deleteAnnouncement(@PathVariable Long id) {
-        announcementRepository.deleteById(java.util.Objects.requireNonNull(id));
+    public Map<String, Object> deleteAnnouncement(@PathVariable Long id) throws IOException {
+        Announcement announcement = announcementRepository.findById(java.util.Objects.requireNonNull(id))
+                .orElseThrow(() -> new IllegalArgumentException("Announcement not found."));
+        if (announcement.getAttachmentStorageKey() != null) {
+            announcementAttachmentService.delete(announcement.getAttachmentStorageKey());
+        }
+        announcementRepository.delete(announcement);
         auditService.record(actor(), "ANNOUNCEMENT_DELETED", "announcement:" + id, null);
         return Map.of("deleted", true);
     }

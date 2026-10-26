@@ -1,5 +1,6 @@
 package com.exam.allocation.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.time.Instant;
 
@@ -27,6 +28,14 @@ public class Announcement {
     /** Comma-separated roll numbers for individual targeting; null/blank = not used. */
     @Column(length = 2000)
     private String rollNos;
+
+    /** Random server-side storage key; never exposed through announcement JSON. */
+    @JsonIgnore
+    @Column(name = "attachment_storage_key", length = 36)
+    private String attachmentStorageKey;
+
+    @Column(name = "attachment_file_name", length = 120)
+    private String attachmentFileName;
 
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
@@ -56,6 +65,12 @@ public class Announcement {
 
     public String getRollNos() { return rollNos; }
     public void setRollNos(String rollNos) { this.rollNos = rollNos; }
+
+    public String getAttachmentStorageKey() { return attachmentStorageKey; }
+    public void setAttachmentStorageKey(String attachmentStorageKey) { this.attachmentStorageKey = attachmentStorageKey; }
+
+    public String getAttachmentFileName() { return attachmentFileName; }
+    public void setAttachmentFileName(String attachmentFileName) { this.attachmentFileName = attachmentFileName; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

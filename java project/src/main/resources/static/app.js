@@ -760,7 +760,7 @@ async function unpublishAllocations() {
     if (!selectedExamId) return;
     try {
         const res = await api('/api/allocations/' + selectedExamId + '/unpublish', jsonOpts('POST', {}));
-        toast(res.unpublished + ' allocation(s) moved back to draft.');
+        toast(res.message || (res.unpublished + ' allocation(s) moved back to draft.'));
         await refreshAllocStatus();
     } catch (e) { toast(e.message, true); }
 }
@@ -863,7 +863,11 @@ async function loadStudentOverview() {
         const anns = s.announcements || [];
         $('stu-announcements').innerHTML = anns.length
             ? anns.map(a => '<div class="ann-item"><b>' + esc(a.title) + '</b>' +
-                  '<div class="hint" style="margin:0">' + esc(a.body || '') + '</div></div>').join('')
+                  '<div class="hint" style="margin:0">' + esc(a.body || '') + '</div>' +
+                  (a.attachmentDownloadUrl
+                      ? '<a class="btn btn-sm btn-ghost" href="' + esc(a.attachmentDownloadUrl) + '">Download ' +
+                        esc(a.attachmentFileName || 'PDF attachment') + '</a>'
+                      : '') + '</div>').join('')
             : '<p class="hint">No announcements.</p>';
     } catch (e) { toast(e.message, true); }
 }
@@ -1274,6 +1278,9 @@ async function loadAnnouncements() {
                 (a.rollNos ? ' <span class="badge" style="background:#F59E0B">' + esc(shortRolls(a.rollNos)) + '</span>' : '') +
                 (!a.batchName && !a.semester && !a.rollNos ? ' <span class="muted">all students</span>' : '') +
                 '<div class="hint" style="margin:0">' + esc(a.body || '') + '</div>' +
+                (a.attachmentFileName
+                    ? '<div class="hint" style="margin:0">PDF: ' + esc(a.attachmentFileName) + '</div>'
+                    : '') +
                 '<div class="hint" style="margin:0">' + esc(String(a.createdAt || '').replace('T', ' ').slice(0, 16)) + '</div></div>' +
                 '<button type="button" class="btn btn-sm btn-danger" data-del-ann="' + a.id + '">Delete</button>' +
                 '</div>').join('')
@@ -1293,21 +1300,39 @@ async function addAnnouncement() {
     const batchName = $('a-batch').value.trim();
     const semesterRaw = $('a-semester') ? $('a-semester').value.trim() : '';
     const rollNos = $('a-rolls') ? $('a-rolls').value.trim() : '';
+    const attachment = $('a-attachment') && $('a-attachment').files.length
+        ? $('a-attachment').files[0] : null;
     if (!title) { toast('Enter an announcement title.', true); $('a-title').focus(); return; }
     if (semesterRaw && !/^[1-8]$/.test(semesterRaw)) { toast('Semester must be 1-8.', true); return; }
     if (rollNos && !/^[\w\-]+(\s*,\s*[\w\-]+)*$/.test(rollNos)) {
         toast('Roll numbers must be a comma-separated list (e.g. 101, 102).', true); return;
     }
+    if (attachment && !attachment.name.toLowerCase().endsWith('.pdf')) {
+        toast('Choose a PDF attachment.', true); return;
+    }
+    if (attachment && attachment.size > 10 * 1024 * 1024) {
+        toast('Announcement PDFs must be 10 MB or smaller.', true); return;
+    }
+    const payload = {
+        title,
+        body: body || null,
+        batchName: batchName || null,
+        semester: semesterRaw ? Number(semesterRaw) : null,
+        rollNos: rollNos || null
+    };
     try {
-        const res = await api('/api/admin/announcements', jsonOpts('POST', {
-            title,
-            body: body || null,
-            batchName: batchName || null,
-            semester: semesterRaw ? Number(semesterRaw) : null,
-            rollNos: rollNos || null
-        }));
+        let res;
+        if (attachment) {
+            const form = new FormData();
+            form.append('announcement', new Blob([JSON.stringify(payload)], { type: 'application/json' }));
+            form.append('file', attachment);
+            res = await api('/api/admin/announcements', { method: 'POST', body: form });
+        } else {
+            res = await api('/api/admin/announcements', jsonOpts('POST', payload));
+        }
         $('a-title').value = ''; $('a-body').value = '';
         if ($('a-rolls')) $('a-rolls').value = '';
+        if ($('a-attachment')) $('a-attachment').value = '';
         const n = (res && res.notifications) || {};
         const audience = [batchName && 'batch ' + batchName,
                           semesterRaw && 'semester ' + semesterRaw,

@@ -47,7 +47,7 @@ npm run create:admin                # interactive admin account creation
 npm start                           # http://localhost:3000
 ```
 
-On Windows, run [`..\start.bat`](../start.bat) from the repository root to start this server alongside the seating system and open the pages after they respond.
+This is a standalone public-subscription/campaign tool and is not the notification backend used by student accounts in the Java seating system. Student exam, seating and announcement alerts are handled by the Java app on port 8080. To start this separate Node tool alongside Java on Windows, set `START_STANDALONE_NOTIFICATIONS=1` before running [`..\start.bat`](../start.bat); it is disabled by default.
 
 - Public subscribe page: `http://localhost:3000/`
 - Admin login: `http://localhost:3000/admin-login.html`

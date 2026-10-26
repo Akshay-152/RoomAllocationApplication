@@ -34,7 +34,8 @@ PDF that includes the student list with Roll Number, Name, Branch and Batch.
 - **Two role-based portals** — an administrator SPA (Dashboard, Students, Rooms,
   Courses, Exams, Seating Chart, Import Data, Calendar, Reports, Announcements,
   Settings) and a student portal (Overview, My Exams, My Seat, Profile).
-- **Student notifications** — exam, seat, room and admin announcement events
+- **Student notifications** — exam publish/reschedule/cancel, seating publish/
+  change/withdrawal, room and admin announcement events
   fan out to the targeted students' inboxes; while signed in, Java Server-Sent
   Events deliver alerts in real time and update the bell's unread badge. After
   the student grants permission once (only ever from an explicit button click),
@@ -45,6 +46,13 @@ PDF that includes the student list with Roll Number, Name, Branch and Batch.
   cancelled, seat published/changed, room updated, announcement) with
   placeholders like `{subject}`, `{seat}` and `{when}`. No Firebase and no
   third-party push service is involved.
+- **Private announcement PDFs** — administrators can attach a PDF (up to
+  10 MB) to a targeted announcement. Files are stored outside the public web
+  directory and students can download them only when they match that
+  announcement's audience.
+- **Scoped seating PDFs** — download the full chart, a single room, a class/
+  batch, or one room and class/batch together. Each generated PDF contains
+  names, branches, batches, room details and seat assignments.
 - **Authentication & roles** — server-side login for the administrator and for
   every student (roll number as initial password, a banner prompting a password
   change on first login, BCrypt hashes), session cookies, CSRF protection, login
@@ -74,7 +82,7 @@ PDF that includes the student list with Roll Number, Name, Branch and Batch.
 
 ## Run it
 
-On Windows, run [`..\start.bat`](../start.bat) from the repository root to start MySQL if needed, rebuild and start the seating system, start the notification server, and open the pages after they respond.
+On Windows, run [`..\start.bat`](../start.bat) from the repository root to start MySQL if needed, rebuild and start the seating system, and open the Java portal after it responds. Student notifications are part of this Java app and do not require the separate Node server in `notification/`. To also start that independent tool, set `START_STANDALONE_NOTIFICATIONS=1` before running the script.
 
 ```bash
 #1. Build
@@ -135,8 +143,8 @@ and no third-party push service involved.
    SQL `push_subscriptions` table (endpoint + `p256dh`/`auth` keys), scoped to
    the signed-in student's ID.
 
-3. Publishing an exam, publishing seating, editing a room or posting an
-   announcement renders the matching message from the `notification_templates`
+3. Publishing or cancelling an exam, publishing or withdrawing seating, editing
+   a room or posting an announcement renders the matching message from the `notification_templates`
    table (admin-editable in **Settings**, resettable to the built-in defaults)
    and sends it to each recipient's active subscriptions — best-effort with
    bounded retry; subscriptions the push service reports as gone (HTTP 404/410)

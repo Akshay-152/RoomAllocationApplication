@@ -207,6 +207,40 @@ class ExamNotificationServiceTest {
                 eq("seat"), eq(1L), anyString());
     }
 
+    @Test
+    void withdrawingPublishedSeatsNotifiesStudentsAndRepublishingStartsANewPublication() {
+        Exam maths = exam(1L, "Maths");
+        Room room = new Room();
+        room.setId(10L);
+        room.setRoomNumber("101");
+        Student a = student(1L, "101", "E");
+        SeatAllocation seat = allocation(maths, a, room, 2, 3);
+        Notification previous = new Notification(1L, Type.SEAT_PUBLISHED, "T", null, "seat", 1L,
+                "seat:1:Room 101, seat R2-C03");
+        previous.setId(42L);
+        when(notificationRepository.findTopByStudentIdAndExamIdAndTypeInOrderByCreatedAtDesc(
+                eq(1L), eq(1L), any())).thenReturn(Optional.of(previous));
+        when(notificationService.notify(any(Student.class), any(Type.class), anyString(),
+                anyString(), anyString(), anyLong(), anyString()))
+                .thenReturn(new NotificationService.FanOutResult());
+
+        examNotificationService.seatingUnpublished(maths, List.of(seat));
+
+        ArgumentCaptor<String> withdrawalKey = ArgumentCaptor.forClass(String.class);
+        verify(notificationService).notify(eq(a), eq(Type.SEAT_UNPUBLISHED), anyString(), anyString(),
+                eq("seat"), eq(1L), withdrawalKey.capture());
+        assertTrue(withdrawalKey.getValue().contains(":42"));
+
+        Notification withdrawn = new Notification(1L, Type.SEAT_UNPUBLISHED, "T", null, "seat", 1L,
+                withdrawalKey.getValue());
+        when(notificationRepository.findTopByStudentIdAndExamIdAndTypeInOrderByCreatedAtDesc(
+                eq(1L), eq(1L), any())).thenReturn(Optional.of(withdrawn));
+        examNotificationService.seatingPublished(maths, List.of(seat));
+
+        verify(notificationService).notify(eq(a), eq(Type.SEAT_PUBLISHED), anyString(), anyString(),
+                eq("seat"), eq(1L), anyString());
+    }
+
     // ------------------------------------------------------------------ rooms
 
     @Test

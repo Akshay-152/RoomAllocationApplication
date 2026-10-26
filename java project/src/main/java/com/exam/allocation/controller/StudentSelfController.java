@@ -3,14 +3,22 @@ package com.exam.allocation.controller;
 import com.exam.allocation.model.*;
 import com.exam.allocation.repository.*;
 import com.exam.allocation.service.AllocationService;
+import com.exam.allocation.service.AnnouncementAttachmentService;
 import com.exam.allocation.service.AuditService;
 import com.exam.allocation.service.ExamSemesterService;
 import com.exam.allocation.service.SessionService;
 import com.exam.allocation.service.UserAccountService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.CacheControl;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -31,6 +39,7 @@ public class StudentSelfController {
     @Autowired private ExamRepository examRepository;
     @Autowired private SeatAllocationRepository seatAllocationRepository;
     @Autowired private AnnouncementRepository announcementRepository;
+    @Autowired private AnnouncementAttachmentService announcementAttachmentService;
     @Autowired private AllocationService allocationService;
     @Autowired private ExamSemesterService examSemesterService;
     @Autowired private UserAccountService userAccountService;
@@ -138,6 +147,30 @@ public class StudentSelfController {
         out.put("exam", describeExam(found.getExam()));
         out.put("seat", describeAllocation(found));
         return out;
+    }
+
+    /** Downloads an announcement PDF only when the signed-in student is in its audience. */
+    @GetMapping("/announcements/{id}/attachment")
+    public ResponseEntity<byte[]> downloadAnnouncementAttachment(@PathVariable Long id) throws IOException {
+        Student student = requireStudent();
+        Announcement announcement = announcementRepository.findById(java.util.Objects.requireNonNull(id))
+                .orElseThrow(() -> new IllegalArgumentException("Announcement not found."));
+        boolean targeted = announcementsFor(student).stream()
+                .anyMatch(item -> id.equals(item.getId()));
+        if (!targeted || announcement.getAttachmentStorageKey() == null
+                || announcement.getAttachmentFileName() == null) {
+            throw new IllegalArgumentException("Announcement attachment not found.");
+        }
+        byte[] content = announcementAttachmentService.read(announcement.getAttachmentStorageKey());
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment()
+                                .filename(announcement.getAttachmentFileName(), StandardCharsets.UTF_8)
+                                .build().toString())
+                .header("X-Content-Type-Options", "nosniff")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(content);
     }
 
     /** Students may update their contact details only (no roll no, batch or seating). */
@@ -262,6 +295,11 @@ public class StudentSelfController {
         out.put("title", announcement.getTitle());
         out.put("body", announcement.getBody());
         out.put("createdAt", announcement.getCreatedAt().toString());
+        if (announcement.getAttachmentStorageKey() != null) {
+            out.put("attachmentFileName", announcement.getAttachmentFileName());
+            out.put("attachmentDownloadUrl",
+                    "/api/student/announcements/" + announcement.getId() + "/attachment");
+        }
         return out;
     }
 

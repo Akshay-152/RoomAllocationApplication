@@ -299,9 +299,18 @@ public class AllocationController {
     /** Moves published allocations back to draft (hidden from students again). */
     @PostMapping("/allocations/{examId}/unpublish")
     public Map<String, Object> unpublishAllocations(@PathVariable Long examId) {
+        Exam exam = examRepository.findById(java.util.Objects.requireNonNull(examId))
+                .orElseThrow(() -> new IllegalArgumentException("Exam not found with id " + examId));
+        List<SeatAllocation> previouslyPublished = seatAllocationRepository
+                .findByExamIdAndStatus(examId, SeatAllocation.Status.PUBLISHED);
         int unpublished = allocationService.unpublishAllocations(examId);
+        NotificationService.FanOutResult notificationResult =
+                examNotificationService.seatingUnpublished(exam, previouslyPublished);
+        Map<String, Object> fanOut = notificationResult.toMap();
         auditService.record(actor(), "ALLOCATION_UNPUBLISHED", "exam:" + examId, unpublished + " allocation(s) hidden.");
-        return Map.of("unpublished", unpublished);
+        return Map.of("unpublished", unpublished, "notifications", fanOut,
+                "message", "Seating withdrawn - " + unpublished + " allocation(s) hidden; "
+                        + notificationResult.getCreated() + " student notification(s) created.");
     }
 
     /** Stored allocations (admin view); filters: examId, studentId, status. */

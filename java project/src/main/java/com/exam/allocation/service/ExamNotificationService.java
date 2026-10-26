@@ -1,6 +1,7 @@
 package com.exam.allocation.service;
 
 import com.exam.allocation.model.Exam;
+import com.exam.allocation.model.Notification;
 import com.exam.allocation.model.Notification.Type;
 import com.exam.allocation.model.Room;
 import com.exam.allocation.model.SeatAllocation;
@@ -18,7 +19,7 @@ import java.util.Set;
 
 /**
  * Turns business events (exam published/rescheduled/cancelled, seating
- * published, room edited) into <b>targeted</b> student notifications.
+ * published/withdrawn, room edited) into <b>targeted</b> student notifications.
  *
  * <p>Audience rules reuse the persisted allocation rules
  * ({@link AllocationService#matchesExam}): branch, batch/course (explicit
@@ -36,7 +37,8 @@ import java.util.Set;
 public class ExamNotificationService {
 
     /** Seat-notification types, used to detect "changed vs newly published". */
-    private static final Set<Type> SEAT_TYPES = Set.of(Type.SEAT_PUBLISHED, Type.SEAT_CHANGED);
+    private static final Set<Type> SEAT_TYPES =
+            Set.of(Type.SEAT_PUBLISHED, Type.SEAT_CHANGED, Type.SEAT_UNPUBLISHED);
 
     private static final DateTimeFormatter DAY = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm");
@@ -112,12 +114,14 @@ public class ExamNotificationService {
             if (student == null) continue;
             String seatRef = describeSeat(allocation);
             String baseKey = "seat:" + exam.getId() + ":";
-            String previousKey = latestSeatKey(student.getId(), exam.getId());
+            Notification previous = latestSeatNotification(student.getId(), exam.getId());
+            String previousKey = previous == null ? null : previous.getDedupeKey();
 
-            if (previousKey != null && previousKey.equals(baseKey + seatRef)) {
+            if (previous != null && previous.getType() != Type.SEAT_UNPUBLISHED && previousKey != null
+                    && previousKey.equals(baseKey + seatRef)) {
                 continue;   // identical seat already announced - retry, not news
             }
-            boolean changed = previousKey != null;
+            boolean changed = previous != null && previous.getType() != Type.SEAT_UNPUBLISHED;
             Type type = changed ? Type.SEAT_CHANGED : Type.SEAT_PUBLISHED;
             NotificationTemplateService.Message message =
                     notificationTemplateService.render(type, seatVars(exam, seatRef));
@@ -125,6 +129,29 @@ public class ExamNotificationService {
                     message.title(), message.body(), "seat", exam.getId(),
                     baseKey + (changed ? "changed:" : "") + seatRef);
             combine(combined, one);
+        }
+        return combined;
+    }
+
+    /** A published seating chart was withdrawn and is no longer visible to students. */
+    public NotificationService.FanOutResult seatingUnpublished(Exam exam, List<SeatAllocation> allocations) {
+        NotificationService.FanOutResult combined = new NotificationService.FanOutResult();
+        for (SeatAllocation allocation : allocations) {
+            if (allocation.getStatus() != SeatAllocation.Status.PUBLISHED) continue;
+            Student student = allocation.getStudent();
+            if (student == null || student.getId() == null) continue;
+
+            Notification previous = latestSeatNotification(student.getId(), exam.getId());
+            String previousId = previous != null && previous.getId() != null
+                    ? previous.getId().toString()
+                    : String.valueOf(allocation.getId());
+            String dedupeKey = "seat:" + exam.getId() + ":withdrawn:"
+                    + student.getId() + ":" + previousId;
+            String seatRef = describeSeat(allocation);
+            NotificationTemplateService.Message message =
+                    notificationTemplateService.render(Type.SEAT_UNPUBLISHED, seatVars(exam, seatRef));
+            combine(combined, notificationService.notify(student, Type.SEAT_UNPUBLISHED,
+                    message.title(), message.body(), "seat", exam.getId(), dedupeKey));
         }
         return combined;
     }
@@ -175,11 +202,10 @@ public class ExamNotificationService {
         return vars;
     }
 
-    /** The dedupe key of this student's newest seat notification for an exam, or null. */
-    private String latestSeatKey(Long studentId, Long examId) {
+    /** The newest seat lifecycle notification for this student and exam, or null. */
+    private Notification latestSeatNotification(Long studentId, Long examId) {
         return notificationRepository
                 .findTopByStudentIdAndExamIdAndTypeInOrderByCreatedAtDesc(studentId, examId, SEAT_TYPES)
-                .map(n -> n.getDedupeKey())
                 .orElse(null);
     }
 

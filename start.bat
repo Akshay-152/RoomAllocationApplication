@@ -6,8 +6,8 @@ rem ===========================================================================
 rem  start.bat - starts the whole workspace in one go
 rem
 rem    1. MySQL            Docker Compose (only when port 3306 is not in use)
-rem    2. Seating system   Spring Boot on port 8080
-rem    3. Notification     Node server on port 3000
+rem    2. Seating system   Spring Boot on port 8080, including student alerts
+rem    3. Optional standalone Node notification tool on port 3000
 rem
 rem  Each server runs in its own window: close that window (or press Ctrl+C
 rem  inside it) to stop that server. Nothing else is ever killed.
@@ -162,11 +162,17 @@ set "APP_STATUS=ready"
 set "APP_READY=1"
 :app_done
 
-rem --- 3. Notification server (port 3000) ------------------------------------
+rem --- 3. Optional standalone notification tool (port 3000) ------------------
 echo.
-echo [3/3] Notification server (port 3000) ...
+echo [3/3] Optional standalone notification tool ...
 set "NOTIFY_STATUS=not started"
 set "NOTIFY_READY=0"
+if /i not "%START_STANDALONE_NOTIFICATIONS%"=="1" (
+    echo        Student exam and seating alerts are integrated in the Java app.
+    echo        Set START_STANDALONE_NOTIFICATIONS=1 to start the separate Node tool.
+    set "NOTIFY_STATUS=disabled - Java notifications are integrated"
+    goto notify_done
+)
 if not exist "%NOTIFY_DIR%\package.json" (
     echo        No notification project found - skipping.
     set "NOTIFY_STATUS=skipped - no project"
@@ -208,7 +214,7 @@ if not exist "%NOTIFY_DIR%\node_modules" (
 )
 rem Force local-development settings and the real port so inherited shell
 rem variables cannot make the server reject its config or bind another port.
-start "Notification server - port 3000" /d "%NOTIFY_DIR%" cmd /k "set NODE_ENV=development&& set PORT=3000&& npm start"
+start "Notification server - port 3000" /d "%NOTIFY_DIR%" cmd /k "set NODE_ENV=development&& set PORT=3000&& call start-server.bat"
 echo        Waiting for http://localhost:3000 to answer ...
 set "WAITED=0"
 :wait_notify
@@ -217,7 +223,7 @@ if not errorlevel 1 goto notify_ready
 set /a WAITED+=3
 if %WAITED% geq 30 goto notify_slow
 if %WAITED% geq 12 (
-    powershell -NoProfile -Command "$p = Get-CimInstance Win32_Process -Filter 'Name=''node.exe''' | Where-Object { $_.CommandLine -like '*src/server.js*' }; if ($p) { exit 0 } else { exit 1 }" >nul 2>&1
+    powershell -NoProfile -Command "$entry = Join-Path $env:NOTIFY_DIR 'src\server.js'; $p = Get-CimInstance Win32_Process -Filter 'Name=''node.exe''' | Where-Object { $_.CommandLine -and $_.CommandLine.IndexOf($entry, [System.StringComparison]::OrdinalIgnoreCase) -ge 0 }; if ($p) { exit 0 } else { exit 1 }" >nul 2>&1
     if errorlevel 1 goto notify_failed
 )
 powershell -NoProfile -Command "Start-Sleep -Seconds 3" >nul 2>&1
@@ -244,8 +250,9 @@ echo   Startup summary
 echo ============================================
 echo   Seating system  : http://localhost:8080   (admin / admin)     [%APP_STATUS%]
 echo   Student login   : http://localhost:8080   (roll no / roll no) [%APP_STATUS%]
-echo   Notifications   : http://localhost:3000   (subscribe page)    [%NOTIFY_STATUS%]
-echo   Notify admin    : http://localhost:3000/admin-login.html      [%NOTIFY_STATUS%]
+echo   Student alerts  : http://localhost:8080   (Java portal)      [%APP_STATUS%]
+echo   Standalone tool : http://localhost:3000   (optional)          [%NOTIFY_STATUS%]
+if "%NOTIFY_READY%"=="1" echo   Standalone admin: http://localhost:3000/admin-login.html
 echo.
 echo   MySQL           : localhost:3306 [%DB_STATUS%]
 echo   Stop a server   : close its window or press Ctrl+C inside it

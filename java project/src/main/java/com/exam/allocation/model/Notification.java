@@ -40,6 +40,7 @@ public class Notification {
         EXAM_CANCELLED,
         SEAT_PUBLISHED,
         SEAT_CHANGED,
+        SEAT_UNPUBLISHED,
         ROOM_CHANGED,
         ANNOUNCEMENT
     }

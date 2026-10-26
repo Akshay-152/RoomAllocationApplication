@@ -844,13 +844,26 @@
                     <label for="alloc-exam">Exam</label>
                     <select id="alloc-exam" onchange="onExamSelected()"></select>
                 </div>
+                <div class="field">
+                    <label for="chart-pdf-room">PDF room</label>
+                    <select id="chart-pdf-room" aria-label="Filter chart PDF by room">
+                        <option value="">All rooms</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="chart-pdf-batch">PDF class</label>
+                    <select id="chart-pdf-batch" aria-label="Filter chart PDF by class">
+                        <option value="">All classes</option>
+                    </select>
+                </div>
                 <button class="btn btn-amber" id="btn-generate" onclick="generateAllocation()">Generate Seating Chart</button>
-                <button class="btn btn-success" id="btn-pdf" onclick="downloadChartPdf()">Download Chart PDF</button>
+                <button class="btn btn-success" id="btn-pdf" onclick="downloadChartPdf()">Download Filtered Chart PDF</button>
                 <button class="btn btn-success" id="btn-publish" onclick="publishAllocations()" disabled>Publish seats</button>
                 <button class="btn btn-ghost" id="btn-unpublish" onclick="unpublishAllocations()" disabled>Unpublish</button>
                 <button class="btn btn-ghost" onclick="window.print()">Print</button>
                 <button class="btn btn-ghost" onclick="loadSeatsForSelected()">Refresh</button>
             </div>
+            <p class="hint">PDF options: full chart, one room, one class, or one room and class together. The student roster includes names, branches, batches, room numbers and seat codes.</p>
             <div id="alloc-status" class="hint" style="margin-top:.4rem"></div>
             <div id="alloc-room-block" style="margin-top:.9rem">
                 <h4 style="margin:.2rem 0">Rooms for this exam</h4>
@@ -1014,9 +1027,11 @@
                 </select></div>
                 <div class="field grow"><label for="a-rolls">Specific students (roll nos, optional)</label>
                     <input id="a-rolls" enterkeyhint="next" placeholder="e.g. 101, 102, 103 — leave empty for everyone"></div>
+                <div class="field"><label for="a-attachment">Optional PDF</label>
+                    <input id="a-attachment" type="file" accept=".pdf,application/pdf" aria-describedby="a-attachment-help"></div>
                 <button type="button" class="btn btn-success" onclick="addAnnouncement()">Post</button>
             </form>
-            <p class="hint">Audience filters combine: a batch + semester + roll-number list only notifies students matching <b>all</b> selected filters. Each targeted student also gets a notification (bell, top right of their portal) and a browser push if enabled.</p>
+            <p class="hint" id="a-attachment-help">PDF attachment limit: 10 MB. Only students in the selected audience can download it. Audience filters combine: a batch + semester + roll-number list only notifies students matching <b>all</b> selected filters. Each targeted student also gets a notification (bell, top right of their portal) and a browser push if enabled.</p>
             <div id="ann-list"><p class="hint">Loading…</p></div>
         </div>
 
@@ -1934,13 +1949,43 @@
     async function loadSeatsForSelected() {
         if (!selectedExamId) {
             seats = [];
+            refreshChartPdfFilters();
             renderChart();
             return;
         }
         try {
             seats = await api('/api/seats?examId=' + selectedExamId);
+            refreshChartPdfFilters();
             renderChart();
         } catch (e) { toast(e.message, true); }
+    }
+    function refreshChartPdfFilters() {
+        const roomSelect = $('chart-pdf-room');
+        const batchSelect = $('chart-pdf-batch');
+        if (!roomSelect || !batchSelect) return;
+        const selectedRoom = roomSelect.value;
+        const selectedBatch = batchSelect.value;
+        const roomOptions = new Map();
+        const batchOptions = new Set();
+        seats.forEach(seat => {
+            const room = seat.room;
+            if (room && room.id != null) {
+                const location = [room.building, room.floor == null ? '' : 'Floor ' + room.floor]
+                    .filter(Boolean).join(' · ');
+                roomOptions.set(String(room.id), [room.roomNumber || 'Room', location]
+                    .filter(Boolean).join(' — '));
+            }
+            const student = seat.allocatedStudent;
+            if (student && student.batch) batchOptions.add(student.batch);
+        });
+        roomSelect.innerHTML = '<option value="">All rooms</option>' +
+            [...roomOptions.entries()].sort((a, b) => a[1].localeCompare(b[1]))
+                .map(([id, label]) => '<option value="' + esc(id) + '">' + esc(label) + '</option>').join('');
+        batchSelect.innerHTML = '<option value="">All classes</option>' +
+            [...batchOptions].sort().map(batch =>
+                '<option value="' + esc(batch) + '">' + esc(batch) + '</option>').join('');
+        if (roomOptions.has(selectedRoom)) roomSelect.value = selectedRoom;
+        if (batchOptions.has(selectedBatch)) batchSelect.value = selectedBatch;
     }
     async function generateAllocation() {
         if (!selectedExamId) { toast('Create an exam first.', true); return; }
@@ -2095,7 +2140,12 @@
 
     async function downloadChartPdf() {
         if (!selectedExamId) { toast('Create an exam first.', true); return; }
-        await downloadFile('/api/chart/pdf?examId=' + selectedExamId, 'seating-chart.pdf');
+        const params = new URLSearchParams({ examId: String(selectedExamId) });
+        const roomId = $('chart-pdf-room').value;
+        const batch = $('chart-pdf-batch').value;
+        if (roomId) params.set('roomId', roomId);
+        if (batch) params.set('batch', batch);
+        await downloadFile('/api/chart/pdf?' + params.toString(), 'seating-chart.pdf');
     }
 
     async function downloadFile(url, fallback) {
