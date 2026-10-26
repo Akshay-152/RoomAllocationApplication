@@ -102,6 +102,26 @@ public class WebPushService {
     }
 
     /**
+     * Structured outcome of a single-device send, used by the campaign engine
+     * to persist one delivery row per subscriber (result + HTTP status + error).
+     */
+    public static class SendOutcome {
+        public enum Result { ACCEPTED, GONE, FAILED }
+
+        public final Result result;
+        public final Integer httpStatus;
+        public final String error;
+        public final int attempts;
+
+        SendOutcome(Result result, Integer httpStatus, String error, int attempts) {
+            this.result = result;
+            this.httpStatus = httpStatus;
+            this.error = error;
+            this.attempts = attempts;
+        }
+    }
+
+    /**
      * Pushes one notification to the given devices. Each device keeps its own
      * outcome so valid subscriptions survive failures of other devices.
      *
@@ -133,9 +153,22 @@ public class WebPushService {
         return result;
     }
 
-    /** One device, with bounded retry + exponential backoff on transient failures. */
+    /** One device into the multicast result (same classification as before). */
     private void sendToOne(PushSubscription device, String payload, DeliveryResult result) {
-        Notification notification = null;
+        switch (sendOne(device, payload).result) {
+            case ACCEPTED -> result.delivered.add(device);
+            case GONE -> result.invalidTokens.add(device);
+            case FAILED -> result.failed.add(device);
+        }
+    }
+
+    /**
+     * Sends one pre-built payload to one device and reports the structured
+     * outcome (used by {@link CampaignService} to record delivery rows).
+     * Requires {@link #isSendingEnabled()}; callers check it first.
+     */
+    public SendOutcome sendOne(PushSubscription device, String payload) {
+        Notification notification;
         try {
             notification = Notification.builder()
                     .endpoint(device.getEndpoint())
@@ -149,8 +182,8 @@ public class WebPushService {
         } catch (RuntimeException | GeneralSecurityException ex) {
             // Stored keys that no longer parse are permanent: the browser must re-subscribe.
             markFailed(device, "bad subscription: " + ex.getMessage());
-            result.failed.add(device);
-            return;
+            return new SendOutcome(SendOutcome.Result.FAILED, null,
+                    truncate(ex.getMessage()), 1);
         }
 
         int attempts = 0;
@@ -164,23 +197,22 @@ public class WebPushService {
                     device.setFailureCount(0);
                     device.setLastError(null);
                     device.setLastDeliveryAt(Instant.now());
-                    result.delivered.add(device);
-                    return;
+                    return new SendOutcome(SendOutcome.Result.ACCEPTED, status, null, attempts);
                 }
                 if (status == 404 || status == 410) {
                     // The push service no longer knows this subscription.
                     device.setActive(false);
                     device.setLastError(truncate("HTTP " + status + ": subscription is gone"));
-                    result.invalidTokens.add(device);
-                    return;
+                    return new SendOutcome(SendOutcome.Result.GONE, status,
+                            "subscription is gone", attempts);
                 }
                 if (TRANSIENT_STATUSES.contains(status) && attempts <= MAX_RETRIES) {
                     backoff(attempts);
                     continue;
                 }
                 markFailed(device, "HTTP " + status);
-                result.failed.add(device);
-                return;
+                return new SendOutcome(SendOutcome.Result.FAILED, status,
+                        "HTTP " + status, attempts);
             } catch (IOException | GeneralSecurityException | JoseException
                      | java.util.concurrent.ExecutionException ex) {
                 // Network-level problem: worth one bounded retry, then record it.
@@ -189,19 +221,18 @@ public class WebPushService {
                     continue;
                 }
                 markFailed(device, ex.getMessage());
-                result.failed.add(device);
-                return;
+                return new SendOutcome(SendOutcome.Result.FAILED, null,
+                        truncate(ex.getMessage()), attempts);
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
                 markFailed(device, "interrupted");
-                result.failed.add(device);
-                return;
+                return new SendOutcome(SendOutcome.Result.FAILED, null, "interrupted", attempts);
             } catch (RuntimeException ex) {
                 // Anything unexpected: count a failure, keep the subscription alive.
                 log.debug("Push to device {} failed: {}", device.getId(), ex.getMessage());
                 markFailed(device, ex.getMessage());
-                result.failed.add(device);
-                return;
+                return new SendOutcome(SendOutcome.Result.FAILED, null,
+                        truncate(ex.getMessage()), attempts);
             }
         }
     }
@@ -223,6 +254,28 @@ public class WebPushService {
         payload.put("icon", "/icons/icon-192.png");
         payload.put("badge", "/icons/badge.png");
         payload.put("tag", notificationId == null ? "exam-notification" : "n-" + notificationId);
+        payload.put("timestamp", Instant.now().toString());
+        return JSON.writeValueAsString(payload);
+    }
+
+    /**
+     * Payload for an admin broadcast campaign: same schema the service worker
+     * already understands, but with an explicit destination URL, icon and tag
+     * (all validated by the campaign service before this point).
+     */
+    public String buildCampaignPayload(Long campaignId, String title, String body,
+                                       String url, String icon, String tag)
+            throws JsonProcessingException {
+        ObjectNode payload = JSON.createObjectNode();
+        payload.put("v", 1);
+        if (campaignId != null) payload.put("id", -campaignId);   // negative = campaign, not in-app row
+        payload.put("title", title == null || title.isBlank() ? "Notification" : title);
+        payload.put("body", body == null ? "" : body);
+        payload.put("url", url == null || url.isBlank() ? "/index.html#overview" : url);
+        payload.put("icon", icon == null || icon.isBlank() ? "/icons/icon-192.png" : icon);
+        payload.put("badge", "/icons/badge.png");
+        payload.put("tag", tag == null || tag.isBlank()
+                ? (campaignId == null ? "campaign" : "campaign-" + campaignId) : tag);
         payload.put("timestamp", Instant.now().toString());
         return JSON.writeValueAsString(payload);
     }

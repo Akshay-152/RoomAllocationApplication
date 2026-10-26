@@ -541,6 +541,14 @@
             cursor: pointer;
         }
         .tpl-token:hover { background: #E0E7FF; }
+        /* Campaign progress + results (Notifications tab) */
+        .progress { display: flex; align-items: center; gap: .45rem; min-width: 130px; }
+        .progress-track { flex: 1; height: 8px; background: #E5E7EB; border-radius: 999px; overflow: hidden; }
+        .progress-fill { height: 100%; background: #6366F1; border-radius: 999px; transition: width .4s ease; }
+        .progress-fill.done { background: #10B981; }
+        .progress-fill.bad { background: #EF4444; }
+        .result-row { display: flex; gap: .5rem; align-items: center; padding: .35rem 0; border-bottom: 1px solid #EEF2F6; font-size: .84rem; }
+        .result-row:last-child { border-bottom: none; }
         @media (max-width: 760px) {
             .navbar {
                 position: relative;
@@ -681,6 +689,7 @@
         <button class="tab" data-section="calendar" onclick="showSection('calendar')">Calendar</button>
         <button class="tab" data-section="reports" onclick="showSection('reports')">Reports</button>
         <button class="tab" data-section="announcements" onclick="showSection('announcements')">Announcements</button>
+        <button class="tab" data-section="notifications" onclick="showSection('notifications')">Notifications</button>
         <button class="tab" data-section="settings" onclick="showSection('settings')">Settings</button>
     </div>
 
@@ -1027,6 +1036,65 @@
             <div id="ann-list"><p class="hint">Loading…</p></div>
         </div>
 
+        <!-- ============ Notifications (broadcast campaigns + subscribers) ============ -->
+        <div id="notifications-section" class="card section-view">
+            <h3>Push Notifications</h3>
+            <p class="hint">Broadcast a message to <b>every</b> registered device &mdash; send it now, schedule it
+                for later (survives restarts), or keep it as a draft. Targeted per-student messages stay in
+                <b>Announcements</b>. Delivery is automatic: failed tries are retried with backoff and dead
+                subscriptions are retired on their own.</p>
+            <div id="sub-stats" class="count-row"></div>
+
+            <h4 style="margin-top:1rem">Compose</h4>
+            <form id="cp-form" class="form-grid" autocomplete="off">
+                <div class="field grow"><label for="cp-title">Title</label><input id="cp-title" enterkeyhint="next" maxlength="200" placeholder="e.g. Hall ticket released"></div>
+                <div class="field grow"><label for="cp-body">Message</label><input id="cp-body" enterkeyhint="next" maxlength="1000" placeholder="Short message shown in the push"></div>
+                <div class="field grow"><label for="cp-url">Opens (optional)</label><input id="cp-url" enterkeyhint="next" placeholder="/index.html#overview" value="/index.html#overview"></div>
+                <div class="field"><label for="cp-when">Schedule (local time)</label><input id="cp-when" type="datetime-local" enterkeyhint="go"></div>
+                <button type="button" class="btn btn-success" id="cp-send" onclick="campaignAction('send')">Send now</button>
+                <button type="button" class="btn btn-amber" onclick="campaignAction('schedule')">Schedule</button>
+                <button type="button" class="btn btn-ghost" onclick="campaignAction('draft')">Save draft</button>
+                <button type="button" class="btn btn-ghost" id="cp-cancel-edit" hidden onclick="resetCompose()">Stop editing</button>
+            </form>
+            <div id="cp-msg" class="message-box" style="display:none"></div>
+
+            <h4 style="margin-top:1.2rem">Campaigns</h4>
+            <div class="toolbar no-print">
+                <input id="campaign-search" placeholder="Search title / message&hellip;" aria-label="Search campaigns"
+                       oninput="scheduleSearchCampaigns()">
+                <span class="hint" id="campaign-count" style="margin:0"></span>
+            </div>
+            <div class="table-scroll">
+            <table>
+                <thead><tr><th>#</th><th>Message</th><th>Status</th><th>When</th><th>Delivered</th><th class="actions no-print">Actions</th></tr></thead>
+                <tbody id="campaign-list"></tbody>
+            </table>
+            </div>
+            <div id="campaign-pager" class="toolbar" style="margin-top:.6rem"></div>
+            <div id="results-box" style="display:none; margin-top:1rem; border:1px solid #E5E7EB; border-radius:10px; padding:.7rem .8rem; background:#F8FAFC"></div>
+
+            <h4 style="margin-top:1.4rem">Subscribers</h4>
+            <p class="hint">Every browser device that opted in from the student portal. Endpoints are masked &mdash;
+                the raw push URL is never shown.</p>
+            <div class="toolbar no-print">
+                <input id="sub-search" placeholder="Search roll no / name&hellip;" aria-label="Search subscribers"
+                       oninput="scheduleSearchSubscribers()">
+                <select id="sub-status" onchange="setSubscriberStatus(this.value)" aria-label="Filter subscribers by status">
+                    <option value="all">All devices</option>
+                    <option value="active">Active only</option>
+                    <option value="inactive">Inactive only</option>
+                </select>
+                <button class="btn btn-ghost btn-sm" onclick="cleanupSubscribers()" title="Delete inactive subscriptions older than 30 days">Clean up stale</button>
+            </div>
+            <div class="table-scroll">
+            <table>
+                <thead><tr><th>Device</th><th>Student</th><th>Endpoint</th><th>Status</th><th>Last delivery</th><th>Failures</th><th class="actions no-print">Actions</th></tr></thead>
+                <tbody id="sub-list"></tbody>
+            </table>
+            </div>
+            <div id="sub-pager" class="toolbar" style="margin-top:.6rem"></div>
+        </div>
+
         <!-- ============ Settings ============ -->
         <div id="settings-section" class="card section-view">
             <h3>Settings</h3>
@@ -1290,6 +1358,7 @@
         allocation: loadAllocationTab,
         // defined in app.js (loaded after this script) - resolved at call time
         settings: () => { if (window.loadNotificationTemplates) window.loadNotificationTemplates(); },
+        notifications: () => { if (window.loadNotificationsTab) window.loadNotificationsTab(); },
         import: () => {}
     };
     function showSection(name) {

@@ -1764,7 +1764,442 @@ document.addEventListener('click', async e => {
     } catch (err) { toast(err.message, true); }
 });
 
-/* ==================== 8. Boot ==================== */
+/* ==================== 8. Admin: broadcast push notifications ==================== */
+
+/*
+ * The merged-in notification platform: compose a broadcast push (draft,
+ * schedule or send now), watch live delivery progress, browse per-device
+ * results and manage the subscriber list - all served by this app on the
+ * same port and session as everything else.
+ */
+let campaignsData = { items: [], page: 0, totalPages: 1, total: 0 };
+let campaignPage = 0;
+let campaignSearch = '';
+let editingCampaignId = null;
+let campaignPollTimer = null;
+let campaignResultsId = null;
+let campaignResultsPage = 0;
+let campaignResultsFilter = 'all';
+let pushStats = null;
+let subscribersData = { items: [], page: 0, totalPages: 1, total: 0 };
+let subPage = 0;
+let subSearch = '';
+let subStatus = 'all';
+let cpSearchDebounce = null;
+let subSearchDebounce = null;
+
+const CAMPAIGN_PAGE_SIZE = 10;
+const SUB_PAGE_SIZE = 10;
+
+const CAMPAIGN_BADGES = {
+    DRAFT: '#64748B', QUEUED: '#4F46E5', SCHEDULED: '#F59E0B', SENDING: '#0EA5E9',
+    SENT: '#10B981', PARTIALLY_FAILED: '#F59E0B', FAILED: '#EF4444', CANCELLED: '#9CA3AF'
+};
+
+async function loadNotificationsTab() {
+    loadPushStats();
+    loadCampaigns();
+    loadSubscribers();
+}
+window.loadNotificationsTab = loadNotificationsTab;
+
+async function loadPushStats() {
+    try {
+        pushStats = await api('/api/admin/push-stats');
+        const box = $('sub-stats');
+        if (!box) return;
+        const s = pushStats || {};
+        box.innerHTML =
+            '<span class="count"><b>' + esc(s.subscribersActive) + '</b> active devices</span>' +
+            '<span class="count"><b>' + esc(s.subscribersTotal) + '</b> total devices</span>' +
+            '<span class="count"><b>' + esc(s.campaignsTotal) + '</b> campaigns</span>' +
+            '<span class="count"><b>' + esc(s.campaignsDispatched) + '</b> dispatched</span>' +
+            (s.pushEnabled ? '' :
+                '<span class="count" style="border-color:#FECACA;background:#FEF2F2;color:#B91C1C">' +
+                'Web push is not configured (VAPID keys missing) &mdash; campaigns cannot be sent.</span>');
+    } catch (e) { /* header stats are non-critical */ }
+}
+
+async function loadCampaigns() {
+    const box = $('campaign-list');
+    if (!box) return;
+    try {
+        campaignsData = await api('/api/admin/campaigns?page=' + campaignPage
+            + '&size=' + CAMPAIGN_PAGE_SIZE + '&search=' + encodeURIComponent(campaignSearch))
+            || { items: [], page: 0, totalPages: 1, total: 0 };
+        renderCampaigns();
+    } catch (e) {
+        box.innerHTML = '<tr><td colspan="6" class="empty">' + esc(e.message) + '</td></tr>';
+    }
+}
+
+function campaignWhen(c) {
+    const raw = c.scheduledAt || c.createdAt;
+    if (!raw) return '';
+    const d = new Date(raw);
+    return isNaN(d) ? esc(raw) : d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function renderCampaigns() {
+    const box = $('campaign-list');
+    if (!box) return;
+    const items = campaignsData.items || [];
+    const counter = $('campaign-count');
+    if (counter) counter.textContent = items.length + ' of ' + (campaignsData.total || 0) + ' campaigns';
+
+    const pager = $('campaign-pager');
+    if (pager) {
+        const pages = campaignsData.totalPages || 1;
+        pager.innerHTML = pages > 1
+            ? '<button type="button" class="btn btn-sm btn-ghost" data-cpg="prev"' + (campaignPage <= 0 ? ' disabled' : '') + '>&lsaquo; Prev</button>'
+            + '<span class="hint" style="margin:0">Page ' + (campaignPage + 1) + ' of ' + pages + '</span>'
+            + '<button type="button" class="btn btn-sm btn-ghost" data-cpg="next"' + (campaignPage >= pages - 1 ? ' disabled' : '') + '>Next &rsaquo;</button>'
+            : '';
+    }
+
+    if (!items.length) {
+        box.innerHTML = '<tr><td colspan="6" class="empty">No campaigns yet. Compose one above.</td></tr>';
+        return;
+    }
+    const deviceTotal = (pushStats && pushStats.subscribersActive) || 0;
+    box.innerHTML = items.map(c => {
+        const accepted = c.accepted || 0, failed = c.failed || 0;
+        const attempted = accepted + failed + (c.skipped || 0);
+        const pct = c.status === 'SENDING'
+            ? (deviceTotal > 0 ? Math.min(100, Math.round(attempted * 100 / deviceTotal)) : 0)
+            : null;
+        const deliveredCell = c.status === 'SENDING'
+            ? '<div class="progress"><div class="progress-track"><div class="progress-fill' +
+              (pct >= 100 ? ' done' : '') + '" style="width:' + pct + '%"></div></div>' +
+              '<span class="hint" style="margin:0">' + attempted + '/' + deviceTotal + '</span></div>' +
+              '<span class="hint" style="margin:0">' + accepted + ' delivered' + (failed ? ', ' + failed + ' failed' : '') + '</span>'
+            : (attempted > 0
+                ? '<b>' + accepted + '</b> delivered' + (failed ? ' <span style="color:#B91C1C">(' + failed + ' failed)</span>' : '')
+                : '<span class="hint" style="margin:0">&mdash;</span>');
+
+        let actions = '<button type="button" class="btn btn-sm btn-ghost" data-camp-act="results" data-id="' + c.id + '">Results</button>';
+        if (['DRAFT', 'QUEUED', 'SCHEDULED'].includes(c.status)) {
+            actions = '<button type="button" class="btn btn-sm btn-success" data-camp-act="send" data-id="' + c.id + '">Send now</button>'
+                + '<button type="button" class="btn btn-sm btn-ghost" data-camp-act="edit" data-id="' + c.id + '">Edit</button>'
+                + '<button type="button" class="btn btn-sm btn-danger" data-camp-act="cancel" data-id="' + c.id + '">Cancel</button>'
+                + actions;
+        } else if (c.status === 'SENDING') {
+            actions = '<button type="button" class="btn btn-sm btn-danger" data-camp-act="cancel" data-id="' + c.id + '">Stop</button>' + actions;
+        }
+        if (c.status !== 'SENDING') {
+            actions += '<button type="button" class="btn btn-sm btn-danger" data-camp-act="delete" data-id="' + c.id + '">Delete</button>';
+        }
+
+        return '<tr data-camp-row="' + c.id + '">'
+            + '<td>' + c.id + '</td>'
+            + '<td><b>' + esc(c.title) + '</b>'
+            + (c.body ? '<div class="hint" style="margin:0">' + esc(c.body) + '</div>' : '')
+            + (c.destinationUrl ? '<div class="hint" style="margin:0">&rarr; ' + esc(c.destinationUrl) + '</div>' : '')
+            + '</td>'
+            + '<td><span class="badge" style="background:' + (CAMPAIGN_BADGES[c.status] || '#64748B') + '">'
+            + esc(String(c.status).replace('_', ' ')) + '</span>'
+            + (c.cancelRequested ? '<div class="hint" style="margin:0">stopping&hellip;</div>' : '') + '</td>'
+            + '<td>' + campaignWhen(c) + '</td>'
+            + '<td>' + deliveredCell + '</td>'
+            + '<td class="actions no-print">' + actions + '</td></tr>';
+    }).join('');
+
+    // Live progress: keep polling while any campaign is sending.
+    const anySending = items.some(c => c.status === 'SENDING');
+    if (campaignPollTimer) { clearTimeout(campaignPollTimer); campaignPollTimer = null; }
+    if (anySending && $('notifications-section').classList.contains('active-view')) {
+        campaignPollTimer = setTimeout(loadCampaigns, 2500);
+    }
+    if (campaignResultsId != null) loadCampaignResults(campaignResultsId, campaignResultsPage);
+}
+
+function scheduleSearchCampaigns() {
+    clearTimeout(cpSearchDebounce);
+    cpSearchDebounce = setTimeout(() => {
+        campaignSearch = ($('campaign-search') || {}).value || '';
+        campaignPage = 0;
+        loadCampaigns();
+    }, 300);
+}
+window.scheduleSearchCampaigns = scheduleSearchCampaigns;
+
+/* ---- compose ---- */
+
+function showCpMsg(message, isError) {
+    const box = $('cp-msg');
+    if (!box) return;
+    box.textContent = message || '';
+    box.className = 'message-box' + (message ? (isError ? ' err' : ' ok') : '');
+    box.style.display = message ? 'block' : 'none';
+}
+
+function resetCompose() {
+    editingCampaignId = null;
+    ['cp-title', 'cp-body', 'cp-when'].forEach(id => { const el = $(id); if (el) el.value = ''; });
+    const url = $('cp-url'); if (url) url.value = '/index.html#overview';
+    const stop = $('cp-cancel-edit'); if (stop) stop.hidden = true;
+    showCpMsg('');
+}
+window.resetCompose = resetCompose;
+
+async function campaignAction(mode) {
+    const title = ($('cp-title') || {}).value.trim();
+    const body = ($('cp-body') || {}).value.trim();
+    if (!title) { showCpMsg('A campaign needs a title.', true); return; }
+    const payload = { title: title, body: body, destinationUrl: ($('cp-url') || {}).value.trim() };
+    if (mode === 'schedule') {
+        const when = ($('cp-when') || {}).value;
+        if (!when) { showCpMsg('Pick a date and time to schedule the campaign.', true); return; }
+        const at = new Date(when);
+        if (isNaN(at) || at.getTime() <= Date.now()) {
+            showCpMsg('The scheduled time must be in the future.', true); return;
+        }
+        payload.scheduledAt = at.toISOString();
+    }
+    if (mode === 'draft') payload.draft = true;
+    try {
+        if (editingCampaignId) {
+            await api('/api/admin/campaigns/' + editingCampaignId, jsonOpts('PUT', payload));
+            if (mode === 'send') {
+                await api('/api/admin/campaigns/' + editingCampaignId + '/send', jsonOpts('POST', {}));
+            }
+            toast(mode === 'send' ? 'Campaign updated and queued for delivery.'
+                : mode === 'schedule' ? 'Campaign updated and rescheduled.' : 'Draft updated.');
+        } else {
+            await api('/api/admin/campaigns', jsonOpts('POST', payload));
+            toast(mode === 'draft' ? 'Draft saved - find it below when you are ready to send.'
+                : mode === 'schedule' ? 'Campaign scheduled - it sends automatically at the chosen time.'
+                : 'Campaign queued - delivery starts immediately.');
+        }
+        resetCompose();
+        campaignPage = 0;
+        loadCampaigns();
+        loadPushStats();
+    } catch (e) { showCpMsg(e.message, true); }
+}
+window.campaignAction = campaignAction;
+
+function startEditCampaign(id) {
+    const c = (campaignsData.items || []).find(x => x.id === id);
+    if (!c) return;
+    editingCampaignId = id;
+    $('cp-title').value = c.title || '';
+    $('cp-body').value = c.body || '';
+    $('cp-url').value = c.destinationUrl || '/index.html#overview';
+    const at = c.scheduledAt ? new Date(c.scheduledAt) : null;
+    $('cp-when').value = at && !isNaN(at)
+        ? new Date(at.getTime() - at.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+        : '';
+    $('cp-cancel-edit').hidden = false;
+    showCpMsg('Editing campaign #' + id + ' - use the buttons above to re-send, reschedule or keep it as a draft.');
+    $('cp-title').focus();
+}
+
+/* ---- per-campaign results ---- */
+
+async function loadCampaignResults(id, page) {
+    const box = $('results-box');
+    if (!box) return;
+    try {
+        const res = await api('/api/admin/campaigns/' + id + '/results?page=' + (page || 0)
+            + '&size=10&result=' + encodeURIComponent(campaignResultsFilter));
+        campaignResultsId = id;
+        campaignResultsPage = page || 0;
+        const items = res.items || [];
+        const pages = res.totalPages || 1;
+        box.innerHTML = '<div class="toolbar" style="margin-top:0">'
+            + '<b>Delivery results &mdash; campaign #' + id + '</b>'
+            + '<select onchange="setCampaignResultsFilter(this.value)" aria-label="Filter results">'
+            + ['all', 'accepted', 'failed'].map(v =>
+                '<option value="' + v + '"' + (campaignResultsFilter === v ? ' selected' : '') + '>'
+                + v.charAt(0).toUpperCase() + v.slice(1) + '</option>').join('')
+            + '</select>'
+            + '<span class="hint" style="margin:0">' + (res.total || 0) + ' attempts</span>'
+            + '<button type="button" class="btn btn-sm btn-ghost" onclick="closeCampaignResults()">Close</button>'
+            + '</div>'
+            + (items.length ? items.map(r =>
+                '<div class="result-row">'
+                + '<span class="badge" style="background:' + (r.result === 'ACCEPTED' ? '#10B981' : '#EF4444') + '">'
+                + esc(r.result) + '</span>'
+                + '<span><b>' + esc(r.student || 'unknown student') + '</b>'
+                + (r.deviceInfo ? ' <span class="hint" style="margin:0">' + esc(r.deviceInfo) + '</span>' : '') + '</span>'
+                + '<span class="hint" style="margin:0">' + esc(r.endpoint || '') + '</span>'
+                + '<span class="hint" style="margin:0;margin-left:auto">'
+                + (r.httpStatus ? 'HTTP ' + r.httpStatus + ' &middot; ' : '')
+                + esc(r.errorMessage || (r.attemptAt ? new Date(r.attemptAt).toLocaleString() : '')) + '</span>'
+                + '</div>').join('')
+              : '<p class="hint">No delivery attempts recorded for this filter.</p>')
+            + (pages > 1
+                ? '<div class="toolbar">'
+                  + '<button type="button" class="btn btn-sm btn-ghost" onclick="loadCampaignResults(' + id + ',' + (campaignResultsPage - 1) + ')"' + (campaignResultsPage <= 0 ? ' disabled' : '') + '>&lsaquo; Prev</button>'
+                  + '<span class="hint" style="margin:0">Page ' + (campaignResultsPage + 1) + ' of ' + pages + '</span>'
+                  + '<button type="button" class="btn btn-sm btn-ghost" onclick="loadCampaignResults(' + id + ',' + (campaignResultsPage + 1) + ')"' + (campaignResultsPage >= pages - 1 ? ' disabled' : '') + '>Next &rsaquo;</button>'
+                  + '</div>'
+                : '');
+        box.style.display = 'block';
+    } catch (e) { box.innerHTML = '<p class="hint">' + esc(e.message) + '</p>'; box.style.display = 'block'; }
+}
+window.loadCampaignResults = loadCampaignResults;
+
+/** Inline-select bridge (inline handlers cannot see the IIFE's let bindings). */
+window.setCampaignResultsFilter = function (value) {
+    campaignResultsFilter = value;
+    if (campaignResultsId != null) loadCampaignResults(campaignResultsId, 0);
+};
+
+function closeCampaignResults() {
+    campaignResultsId = null;
+    const box = $('results-box');
+    if (box) { box.style.display = 'none'; box.innerHTML = ''; }
+}
+window.closeCampaignResults = closeCampaignResults;
+
+/* ---- subscribers ---- */
+
+async function loadSubscribers() {
+    const box = $('sub-list');
+    if (!box) return;
+    try {
+        const sel = $('sub-status');
+        subStatus = sel ? sel.value : 'all';
+        subscribersData = await api('/api/admin/push-subscribers?page=' + subPage
+            + '&size=' + SUB_PAGE_SIZE + '&status=' + encodeURIComponent(subStatus)
+            + '&search=' + encodeURIComponent(subSearch))
+            || { items: [], page: 0, totalPages: 1, total: 0 };
+        renderSubscribers();
+    } catch (e) {
+        box.innerHTML = '<tr><td colspan="7" class="empty">' + esc(e.message) + '</td></tr>';
+    }
+}
+window.loadSubscribers = loadSubscribers;
+
+/** Inline-select bridge for the status filter (see setCampaignResultsFilter). */
+window.setSubscriberStatus = function (value) {
+    subStatus = value;
+    subPage = 0;
+    loadSubscribers();
+};
+
+function renderSubscribers() {
+    const box = $('sub-list');
+    if (!box) return;
+    const items = subscribersData.items || [];
+    const pager = $('sub-pager');
+    if (pager) {
+        const pages = subscribersData.totalPages || 1;
+        pager.innerHTML = pages > 1
+            ? '<button type="button" class="btn btn-sm btn-ghost" data-spg="prev"' + (subPage <= 0 ? ' disabled' : '') + '>&lsaquo; Prev</button>'
+            + '<span class="hint" style="margin:0">Page ' + (subPage + 1) + ' of ' + pages + ' &middot; ' + (subscribersData.total || 0) + ' devices</span>'
+            + '<button type="button" class="btn btn-sm btn-ghost" data-spg="next"' + (subPage >= pages - 1 ? ' disabled' : '') + '>Next &rsaquo;</button>'
+            : '';
+    }
+    if (!items.length) {
+        box.innerHTML = '<tr><td colspan="7" class="empty">No devices registered yet. Students opt in from the bell menu in their portal.</td></tr>';
+        return;
+    }
+    box.innerHTML = items.map(d =>
+        '<tr>'
+        + '<td>' + (d.deviceInfo ? esc(d.deviceInfo) : '<span class="hint">unknown browser</span>') + '</td>'
+        + '<td>' + (d.student ? esc(d.student) : '<span class="hint">student #' + esc(d.studentId) + '</span>') + '</td>'
+        + '<td><span class="hint" style="margin:0">' + esc(d.endpoint) + '</span></td>'
+        + '<td>' + (d.active
+            ? '<span class="badge" style="background:#10B981">Active</span>'
+            : '<span class="badge" style="background:#9CA3AF">Inactive</span>') + '</td>'
+        + '<td>' + (d.lastDeliveryAt ? new Date(d.lastDeliveryAt).toLocaleString() : '<span class="hint" style="margin:0">never</span>') + '</td>'
+        + '<td>' + (d.failureCount
+            ? '<b style="color:#B91C1C">' + d.failureCount + '</b>'
+              + (d.lastError ? '<div class="hint" style="margin:0">' + esc(d.lastError) + '</div>' : '')
+            : '0') + '</td>'
+        + '<td class="actions no-print">'
+        + (d.active
+            ? '<button type="button" class="btn btn-sm btn-danger" data-sub-act="off" data-id="' + d.id + '">Deactivate</button>'
+            : '<button type="button" class="btn btn-sm btn-success" data-sub-act="on" data-id="' + d.id + '">Reactivate</button>')
+        + '</td></tr>').join('');
+}
+
+function scheduleSearchSubscribers() {
+    clearTimeout(subSearchDebounce);
+    subSearchDebounce = setTimeout(() => {
+        subSearch = ($('sub-search') || {}).value || '';
+        subPage = 0;
+        loadSubscribers();
+    }, 300);
+}
+window.scheduleSearchSubscribers = scheduleSearchSubscribers;
+
+async function cleanupSubscribers() {
+    if (!confirm('Delete inactive subscriptions older than 30 days? Delivery history is kept.')) return;
+    try {
+        const res = await api('/api/admin/push-subscribers/cleanup', jsonOpts('POST', {}));
+        toast('Removed ' + res.deleted + ' stale subscription' + (res.deleted === 1 ? '' : 's') + '.');
+        loadSubscribers();
+        loadPushStats();
+    } catch (e) { toast(e.message, true); }
+}
+window.cleanupSubscribers = cleanupSubscribers;
+
+/* ---- delegated actions: campaign rows, pagers, subscriber rows ---- */
+
+document.addEventListener('click', async e => {
+    const campBtn = e.target.closest('[data-camp-act]');
+    if (campBtn) {
+        const id = campBtn.dataset.id;
+        const act = campBtn.dataset.campAct;
+        try {
+            if (act === 'results') {
+                if (campaignResultsId === Number(id)) closeCampaignResults();
+                else loadCampaignResults(Number(id), 0);
+            } else if (act === 'edit') {
+                startEditCampaign(Number(id));
+            } else if (act === 'send') {
+                if (!confirm('Send campaign #' + id + ' to every active device now?')) return;
+                await api('/api/admin/campaigns/' + id + '/send', jsonOpts('POST', {}));
+                toast('Campaign queued for delivery.');
+                loadCampaigns(); loadPushStats();
+            } else if (act === 'cancel') {
+                if (!confirm('Cancel campaign #' + id + '?')) return;
+                const res = await api('/api/admin/campaigns/' + id + '/cancel', jsonOpts('POST', {}));
+                toast(res.status === 'SENDING' ? 'Stopping after the current batch.' : 'Campaign cancelled.');
+                loadCampaigns();
+            } else if (act === 'delete') {
+                if (!confirm('Delete campaign #' + id + ' and its delivery records?')) return;
+                await api('/api/admin/campaigns/' + id, jsonOpts('DELETE'));
+                if (campaignResultsId === Number(id)) closeCampaignResults();
+                toast('Campaign deleted.');
+                loadCampaigns(); loadPushStats();
+            }
+        } catch (err) { toast(err.message, true); }
+        return;
+    }
+    const subBtn = e.target.closest('[data-sub-act]');
+    if (subBtn) {
+        const id = subBtn.dataset.id;
+        const on = subBtn.dataset.subAct === 'on';
+        try {
+            await api('/api/admin/push-subscribers/' + id + '/' + (on ? 'reactivate' : 'deactivate'),
+                jsonOpts('POST', {}));
+            toast(on ? 'Device reactivated.' : 'Device deactivated - it will no longer receive pushes.');
+            loadSubscribers(); loadPushStats();
+        } catch (err) { toast(err.message, true); }
+        return;
+    }
+    const cpg = e.target.closest('[data-cpg]');
+    if (cpg && !cpg.disabled) {
+        campaignPage += cpg.dataset.cpg === 'next' ? 1 : -1;
+        if (campaignPage < 0) campaignPage = 0;
+        loadCampaigns();
+        return;
+    }
+    const spg = e.target.closest('[data-spg]');
+    if (spg && !spg.disabled) {
+        subPage += spg.dataset.spg === 'next' ? 1 : -1;
+        if (subPage < 0) subPage = 0;
+        loadSubscribers();
+        return;
+    }
+});
+
+/* ==================== 9. Boot ==================== */
 
 function wireLogin() {
     const form = $('login-form');

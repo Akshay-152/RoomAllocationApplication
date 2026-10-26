@@ -11,4 +11,7 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
     Student findByRollNo(String rollNo);
     List<Student> findByBatch(String batch);
     long countByBatch(String batch);
+
+    /** Subscriber search by roll number or name (admin subscribers screen). */
+    List<Student> findByRollNoContainingIgnoreCaseOrNameContainingIgnoreCase(String rollNo, String name);
 }
