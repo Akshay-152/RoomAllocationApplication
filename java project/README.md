@@ -74,6 +74,8 @@ PDF that includes the student list with Roll Number, Name, Branch and Batch.
 
 ## Run it
 
+On Windows, run [`..\start.bat`](../start.bat) from the repository root to start MySQL if needed, rebuild and start the seating system, start the notification server, and open the pages after they respond.
+
 ```bash
 #1. Build
 ./.mvn-tool/apache-maven-3.9.9/bin/mvn clean package -DskipTests

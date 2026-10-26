@@ -47,6 +47,8 @@ npm run create:admin                # interactive admin account creation
 npm start                           # http://localhost:3000
 ```
 
+On Windows, run [`..\start.bat`](../start.bat) from the repository root to start this server alongside the seating system and open the pages after they respond.
+
 - Public subscribe page: `http://localhost:3000/`
 - Admin login: `http://localhost:3000/admin-login.html`
 
